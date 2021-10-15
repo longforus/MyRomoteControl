@@ -79,9 +79,7 @@ class MainActivity : ComponentActivity() {
     private val timeFormat = SimpleDateFormat("HH:mm:ss")
 
     private var dacTimerJob:Job? = null
-    //    用户登录名称 longforus@1904156388743966.onaliyun.com
-//    AccessKey ID LTAI5tQtacsmAXpfCWqSTZBV
-//    AccessKey Secret ObwS6Yfy76DdtmJ6BSY7OoZbIRXJ6i
+
     val TAG = "MainActivity"
     private val client by lazy {
         val config: Config = Config() // 您的AccessKey ID
