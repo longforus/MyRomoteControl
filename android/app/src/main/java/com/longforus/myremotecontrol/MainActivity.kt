@@ -37,11 +37,9 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
-import com.aliyun.iot20180120.Client
 import com.aliyun.iot20180120.models.PubRequest
 import com.aliyun.iot20180120.models.RRpcRequest
 import com.aliyun.iot20180120.models.RRpcResponse
-import com.aliyun.teaopenapi.models.Config
 import com.longforus.cpix.util.LogUtils
 import com.longforus.myremotecontrol.bean.IconScreens
 import com.longforus.cpix.util.StatusBarUtil
@@ -87,14 +85,7 @@ class MainActivity : ComponentActivity() {
     private var dacTimerJob: Job? = null
 
     val TAG = "MainActivity"
-    private val client by lazy {
-        val config: Config = Config() // 您的AccessKey ID
-            .setAccessKeyId(ALIYUN_AK) // 您的AccessKey Secret
-            .setAccessKeySecret(ALIYUN_SK)
-        // 访问的域名
-        config.endpoint = "iot.cn-shanghai.aliyuncs.com"
-        Client(config)
-    }
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -106,7 +97,6 @@ class MainActivity : ComponentActivity() {
             vm.dacOpen.value = false
             MMKV.defaultMMKV().encode(DAC_POWER_STATUS_KEY, false)
         }
-
         setContent {
             AppMainNavigation()
         }
@@ -131,8 +121,9 @@ class MainActivity : ComponentActivity() {
                             content = { HomeScreen(navController) },
                             topBar = {
                                 TopAppBar(title = {
+                                    val deviceStatus by vm.deviceStatusFlow.collectAsState()
                                     Text(
-                                        text = "RemoteControl",
+                                        text = "RemoteControl : $deviceStatus",
                                         fontSize = 20.sp
                                     )
                                 })
@@ -689,7 +680,7 @@ class MainActivity : ComponentActivity() {
         // 复制代码运行请自行打印 API 的返回值
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val response = client.pub(pubRequest)
+                val response = vm.client.pub(pubRequest)
                 Log.d(TAG, "code = ${response.body.code} message=${response.body.errorMessage}")
                 withContext(Dispatchers.Main) {
                     if (response.body.success) {
@@ -714,7 +705,7 @@ class MainActivity : ComponentActivity() {
         request.setIotInstanceId(InstanceId)
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val response: RRpcResponse = client.rRpc(request)
+                val response: RRpcResponse = vm.client.rRpc(request)
                 Log.d(TAG, "response = ${response.body.code} message=${response.body.errorMessage}")
                 withContext(Dispatchers.Main) {
                     if (response.body.success) {

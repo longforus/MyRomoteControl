@@ -44,7 +44,7 @@ static const uint8_t BLUE_LED_PIN = D3;
 #include <IRutils.h>
 #include <ir_Gree.h>
 
-const uint16_t kIrLed = D5; // ESP8266 GPIO pin to use. Recommended: 4 (D2).
+const uint16_t kIrLed = D2; // ESP8266 GPIO pin to use. Recommended: 4 (D2).
 IRsend irsend(kIrLed);      // Set the GPIO to be used to sending the message.
 IRGreeAC ac(kIrLed);  // Set the GPIO to be used for sending messages.
 
@@ -238,11 +238,13 @@ void onConnectionEstablished()
                         */
                      case hash_str_to_uint32("on"):
                         ac.on();
+                        irsend.sendNEC(0x00FF02FDUL);
                         break;
                      case hash_str_to_uint32("off"):
                        // Set up what we want to send. See ir_Gree.cpp for all the options.
                         // Most things default to off.
                         ac.off();
+                        irsend.sendNEC(0x00FF02FDUL);
                         // ac.setFan(1);
                         // // kGreeAuto, kGreeDry, kGreeCool, kGreeFan, kGreeHeat
                         // ac.setMode(kGreeCool);
@@ -254,7 +256,7 @@ void onConnectionEstablished()
                         // ac.setTurbo(false);
                        break;
                      case hash_str_to_uint32("-"):
-                       irsend.sendNEC(0x00FFA857UL);
+                       irsend.sendNEC(0x00FF02FDUL);
                        break;
                      case hash_str_to_uint32("+"):
                        irsend.sendNEC(0x00FF9867UL);
