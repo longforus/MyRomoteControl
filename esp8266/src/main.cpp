@@ -14,6 +14,7 @@ String lastUpdate = "--";
 
 Ticker ledTiker;
 Ticker dacPowerTiker;
+Ticker printTiker;
 
 /*
   SimpleMQTTClient.ino
@@ -41,9 +42,11 @@ static const uint8_t BLUE_LED_PIN = D3;
 #include <IRsend.h>
 #include <IRrecv.h>
 #include <IRutils.h>
+#include <ir_Gree.h>
 
 const uint16_t kIrLed = D5; // ESP8266 GPIO pin to use. Recommended: 4 (D2).
 IRsend irsend(kIrLed);      // Set the GPIO to be used to sending the message.
+IRGreeAC ac(kIrLed);  // Set the GPIO to be used for sending messages.
 
 // An IR detector/demodulator is connected to GPIO pin 14(D5 on a NodeMCU
 // board).
@@ -55,6 +58,8 @@ decode_results results;
 void fadeLed(int count, int delayMill);
 void led_timer_toggle(int count);
 void dac_power_timer_toggle();
+void ac_remote_split_line_toggle();
+void printACState();
 
 constexpr std::uint32_t hash_str_to_uint32(const char *data)
 {
@@ -88,6 +93,7 @@ void setup(void)
   client.setKeepAlive(60);
   //client.enableHTTPWebUpdater();                                             // Enable the web updater. User and password default to values of MQTTUsername and MQTTPassword. These can be overrited with enableHTTPWebUpdater("user", "password").
   client.enableLastWillMessage("TestClient/lastwill", "I am going offline"); // You can activate the retain flag by setting the third parameter to true
+  printACState();
 }
 
 int btnClickCount = 0;
@@ -115,11 +121,11 @@ void loop(void)
   if (irrecv.decode(&results))
   {
     // print() & println() can't handle printing long longs. (uint64_t)
-    Serial.printf("\n============ %d ===============\n value = %s addr = %d command = %d \n", irRecCount++, uint64ToString(results.value, HEX), results.address, results.command);
-    Serial.print("decode_type = ");
+    Serial.printf("irrecv %d -> value = %s addr = %d command = %d decode_type = ", irRecCount++, uint64ToString(results.value, HEX), results.address, results.command);
     Serial.println(results.decode_type);
-    Serial.println("~~~~~~~~~~~~~~~~~~~~~~~~~~");
     irrecv.resume(); // Receive the next value
+    printTiker.detach();
+    printTiker.once_ms(200,ac_remote_split_line_toggle);
   }
 }
 
@@ -152,7 +158,23 @@ void led_timer_toggle(int count)
 
 void dac_power_timer_toggle()
 {
-  irsend.sendNEC(0x00FF02FDUL);
+  irsend.sendNEC(0x486C807FUL);
+}
+void ac_remote_split_line_toggle()
+{
+  Serial.println();
+}
+
+void printACState() {
+  // Display the settings.
+  Serial.println("GREE A/C remote is in the following state:");
+  Serial.printf("  %s\n", ac.toString().c_str());
+  // Display the encoded IR sequence.
+  unsigned char* ir_code = ac.getRaw();
+  Serial.print("IR Code: 0x");
+  for (uint8_t i = 0; i < kGreeStateLength; i++)
+    Serial.printf("%02X", ir_code[i]);
+  Serial.println();
 }
 
 // This function is called once everything is connected (Wifi and MQTT)
@@ -168,16 +190,23 @@ void onConnectionEstablished()
                      {
                      case hash_str_to_uint32("on"):
                      case hash_str_to_uint32("off"):
-                       irsend.sendNEC(0x00FF02FDUL);
+                     // value = 486C807F addr = 13842 command = 1 
+                      //decode_type = 3
+                      irsend.sendNEC(0x486C807FUL);
                        break;
+                        // value = 486C609F addr = 13842 command = 6
+                        // decode_type = 3
                      case hash_str_to_uint32("-"):
-                       irsend.sendNEC(0x00FFA857UL);
+                       irsend.sendNEC(0x486C609FUL);
                        break;
+                       // value = 486C40BF addr = 13842 command = 2
                      case hash_str_to_uint32("+"):
-                       irsend.sendNEC(0x00FF9867UL);
+                       irsend.sendNEC(0x486C40BFUL);
                        break;
+                       //value = 486CE01F addr = 13842 command = 7
                      case hash_str_to_uint32("input"):
-                       irsend.sendNEC(0x00FF9867UL);
+                       irsend.sendNEC(0x486CE01FUL);
+                       irsend.sendNEC(0x486CE01FUL);
                        break;
                      case hash_str_to_uint32("timerCancel"):
                        dacPowerTiker.detach();
@@ -189,32 +218,55 @@ void onConnectionEstablished()
                          Serial.println("set dac timer : " + m);
                          dacPowerTiker.once(m.toInt()*60, dac_power_timer_toggle);
                        }
-
                        break;
                      }
                      client.publish(topicStr, message);
                    });
 
-  client.subscribe("/ext/rrpc/#/iot/power", [](const String &topicStr, const String &message)
+  client.subscribe("/ext/rrpc/#/home/ac", [](const String &topicStr, const String &message)
                    {
                      Serial.println(topicStr + "  " + message);
                      fadeLed(3, 88);
+                      printACState();
                      switch (hash_str_to_uint32(message.c_str()))
                      {
+                       /*
+                        * irrecv 20 -> value = 250200939 addr = 0 command = 0 decode_type = 55
+                          irrecv 21 -> value = 9DA32078 addr = 0 command = 0 decode_type = -1
+                          irrecv 22 -> value = 270200939 addr = 0 command = 0 decode_type = 55
+                          irrecv 23 -> value = B113BDC0 addr = 0 command = 0 decode_type = -1
+                        */
                      case hash_str_to_uint32("on"):
+                        ac.on();
+                        break;
                      case hash_str_to_uint32("off"):
-                       irsend.sendNEC(0x00FF02FDUL);
+                       // Set up what we want to send. See ir_Gree.cpp for all the options.
+                        // Most things default to off.
+                        ac.off();
+                        // ac.setFan(1);
+                        // // kGreeAuto, kGreeDry, kGreeCool, kGreeFan, kGreeHeat
+                        // ac.setMode(kGreeCool);
+                        // ac.setTemp(20);  // 16-30C
+                        // ac.setSwingVertical(true, kGreeSwingAuto);
+                        // ac.setXFan(false);
+                        // ac.setLight(false);
+                        // ac.setSleep(false);
+                        // ac.setTurbo(false);
                        break;
-                     case hash_str_to_uint32("sub"):
+                     case hash_str_to_uint32("-"):
                        irsend.sendNEC(0x00FFA857UL);
                        break;
-                     case hash_str_to_uint32("add"):
+                     case hash_str_to_uint32("+"):
+                       irsend.sendNEC(0x00FF9867UL);
+                       break;
+                     case hash_str_to_uint32("model"):
                        irsend.sendNEC(0x00FF9867UL);
                        break;
                      default:
                        break;
                      }
-                     client.publish(topicStr, "success");
+                      ac.send();
+                      client.publish(topicStr, ac.toString());
                    });
 
   // client.subscribe("volumio", [](const String &topicStr, const String &message)
