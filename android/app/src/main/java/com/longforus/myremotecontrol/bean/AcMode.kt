@@ -1,5 +1,5 @@
 package com.longforus.myremotecontrol.bean
 
 enum class AcMode {
-    ATUO,COOL,DRY,FAN,HEAT
+    AUTO,COOL,DRY,FAN,HEAT
 }

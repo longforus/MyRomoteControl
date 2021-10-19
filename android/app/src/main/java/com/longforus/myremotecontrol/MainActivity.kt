@@ -162,7 +162,7 @@ class MainActivity : ComponentActivity() {
             2 -> "DacPower:0->off 1->on"
             3 -> "dacTimer"
             4 -> "acPower:0->off 1->on"
-            5 -> "acMode:ATUO,COOL,AREFACTION,AIR,HOT"
+            5 -> "acMode:AUTO,COOL,DRY,FAN,HEAT"
             else -> "vol(0..30)"
         }
 
