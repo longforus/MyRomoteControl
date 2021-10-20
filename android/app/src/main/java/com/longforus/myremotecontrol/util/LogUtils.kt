@@ -1,4 +1,4 @@
-package com.longforus.cpix.util
+package com.longforus.myremotecontrol.util
 
 import android.content.Context
 import android.os.Environment

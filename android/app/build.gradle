@@ -72,4 +72,7 @@ dependencies {
     debugImplementation "androidx.compose.ui:ui-tooling:$compose_version"
     implementation 'com.tencent:mmkv-static:1.2.10'
     implementation 'com.aliyun:iot20180120:1.4.0'
+
+    implementation 'com.github.EspressifApp:lib-esptouch-v2-android:2.1.0'
+
 }

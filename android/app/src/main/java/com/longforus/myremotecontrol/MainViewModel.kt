@@ -4,7 +4,6 @@ import androidx.lifecycle.*
 import com.aliyun.iot20180120.Client
 import com.aliyun.iot20180120.models.GetDeviceStatusRequest
 import com.aliyun.teaopenapi.models.Config
-import com.longforus.cpix.util.LogUtils
 import com.longforus.myremotecontrol.bean.AcMode
 import com.longforus.myremotecontrol.bean.DacInputSource
 import com.tencent.mmkv.MMKV

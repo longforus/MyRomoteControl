@@ -28,7 +28,7 @@ Ticker printTiker;
 
 EspMQTTClient client(
     "XUNMIAO",
-    "8887896523",
+    WIFI_PWD,
     MQTT_SERVER_ADDRESS, // MQTT Broker server ip
     MQTT_USER_NAME,      // Can be omitted if not needed
     MQTT_USER_PWD,       // Can be omitted if not needed

@@ -40,14 +40,14 @@ import androidx.navigation.navArgument
 import com.aliyun.iot20180120.models.PubRequest
 import com.aliyun.iot20180120.models.RRpcRequest
 import com.aliyun.iot20180120.models.RRpcResponse
-import com.longforus.cpix.util.LogUtils
 import com.longforus.myremotecontrol.bean.IconScreens
-import com.longforus.cpix.util.StatusBarUtil
+import com.longforus.myremotecontrol.util.StatusBarUtil
 import com.longforus.myremotecontrol.bean.AcMode
 import com.longforus.myremotecontrol.bean.DacInputSource
 import com.longforus.myremotecontrol.ui.theme.myremotecontrolTheme
 import com.longforus.myremotecontrol.ui.theme.Purple500
 import com.longforus.myremotecontrol.ui.theme.Purple700
+import com.longforus.myremotecontrol.util.LogUtils
 import com.tencent.mmkv.MMKV
 import kotlinx.coroutines.*
 import java.text.SimpleDateFormat
@@ -784,6 +784,19 @@ class MainActivity : ComponentActivity() {
                                         MMKV.defaultMMKV().encode(AC_MODE_KEY, dacInputSource.name)
                                     }
                                     else -> {
+                                        LogUtils.d(TAG, toString)
+                                        ToastUtils.showShort(toString)
+                                    }
+                                }
+                            }
+                            "iot/relay"->{
+                                when(toString){
+                                    "off", "on" -> {
+                                        val b = toString == "on"
+                                        vm.relayOpen.value = b
+                                        MMKV.defaultMMKV().encode("${vm.deviceName.value}:relay", b)
+                                    }
+                                    else->{
                                         LogUtils.d(TAG, toString)
                                         ToastUtils.showShort(toString)
                                     }
