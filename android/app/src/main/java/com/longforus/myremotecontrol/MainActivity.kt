@@ -1,12 +1,19 @@
 package com.longforus.myremotecontrol
 
+
+import android.Manifest
+import android.content.Context
+import android.location.LocationManager
+import android.net.wifi.WifiInfo
+import android.net.wifi.WifiManager
+import android.os.Build
 import android.os.Bundle
 import android.util.Base64
 import android.util.Log
 import android.widget.Toast
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -16,6 +23,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.TapAndPlay
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
@@ -23,15 +33,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.constraintlayout.compose.ConstraintLayout
+import androidx.core.location.LocationManagerCompat
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -40,16 +55,21 @@ import androidx.navigation.navArgument
 import com.aliyun.iot20180120.models.PubRequest
 import com.aliyun.iot20180120.models.RRpcRequest
 import com.aliyun.iot20180120.models.RRpcResponse
-import com.longforus.myremotecontrol.bean.IconScreens
-import com.longforus.myremotecontrol.util.StatusBarUtil
 import com.longforus.myremotecontrol.bean.AcMode
 import com.longforus.myremotecontrol.bean.DacInputSource
-import com.longforus.myremotecontrol.ui.theme.myremotecontrolTheme
+import com.longforus.myremotecontrol.bean.IconScreens
+import com.longforus.myremotecontrol.bean.StateResult
 import com.longforus.myremotecontrol.ui.theme.Purple500
 import com.longforus.myremotecontrol.ui.theme.Purple700
+import com.longforus.myremotecontrol.ui.theme.myremotecontrolTheme
 import com.longforus.myremotecontrol.util.LogUtils
+import com.longforus.myremotecontrol.util.StatusBarUtil
+import com.longforus.myremotecontrol.util.TouchNetUtil
+import com.permissionx.guolindev.PermissionX
+import com.permissionx.guolindev.callback.RequestCallback
 import com.tencent.mmkv.MMKV
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
 import java.text.SimpleDateFormat
 import kotlin.math.max
 import kotlin.math.min
@@ -75,7 +95,7 @@ const val AC_MODE_KEY = "ac:mode"
 const val AC_POWER_OFF_TIMER_KEY = "ac:powerOff"
 
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
 
 
     private val vm by viewModels<MainViewModel>()
@@ -109,31 +129,45 @@ class MainActivity : ComponentActivity() {
         CompositionLocalProvider(LocalNavCtrl provides navController) {
             NavHost(navController, startDestination = IconScreens.Home.route) {
                 // Bottom Nav
-
                 composable(IconScreens.Home.route) {
-                    val bottomNavigationItems = listOf(
-                        IconScreens.Home,
-                        IconScreens.Other,
-                    )
-                    myremotecontrolTheme {
-                        Scaffold(
-                            bottomBar = { BottomAppNavBar(navController, bottomNavigationItems) },
-                            content = { HomeScreen(navController) },
-                            topBar = {
-                                TopAppBar(title = {
-                                    val deviceStatus by vm.deviceStatusFlow.collectAsState()
-                                    Text(
-                                        text = "RemoteControl : $deviceStatus",
-                                        fontSize = 20.sp
-                                    )
-                                })
-                            },
-                            modifier = Modifier.padding(top = 34.dp)
-                        )
+                    ScaffoldScreen(navController, appBar = {
+                        TopAppBar(title = {
+                            val deviceStatus by vm.deviceStatusFlow.collectAsState()
+                            Text(
+                                text = "ESP8266 : $DEVICENAME_8266 $deviceStatus",
+                                fontSize = 20.sp
+                            )
+                        }, actions = {
+                            Icon(Icons.Default.TapAndPlay, contentDescription = null, Modifier.clickable {
+                                navController.navigate("espTouch?device=${DEVICENAME_8266}")
+                            })
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Icon(Icons.Default.Clear, contentDescription = null, Modifier.clickable {
+                                doRRPC("settings", "clearPrefs", DEVICENAME_8266)
+                            })
+                        })
+                    }) {
+                        HomeScreen(navController)
                     }
                 }
                 composable(IconScreens.Other.route) {
-                    ScaffoldScreen(navController) {
+                    ScaffoldScreen(navController, appBar = {
+                        TopAppBar(title = {
+                            val status by vm.secondDeviceStatusFlow.collectAsState()
+                            Text(
+                                text = "ESP32 : $DEVICENAME_32 $status",
+                                fontSize = 20.sp
+                            )
+                        }, actions = {
+                            Icon(Icons.Default.TapAndPlay, contentDescription = null, Modifier.clickable {
+                                navController.navigate("espTouch?device=${DEVICENAME_32}")
+                            })
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Icon(Icons.Default.Clear, contentDescription = null, Modifier.clickable {
+                                doRRPC("settings", "clearPrefs", DEVICENAME_32)
+                            })
+                        })
+                    }) {
                         OtherScreen()
                     }
                 }
@@ -145,9 +179,18 @@ class MainActivity : ComponentActivity() {
                     val type = it.arguments?.getInt("type", 0) ?: 0
                     AdjustDialog(type, navController)
                 }
+                dialog("espTouch?device={devId}", arguments = listOf(navArgument("devId") {
+                    defaultValue = DEVICENAME_8266
+                    type = NavType.StringType
+                })) {
+                    TouchDialog(navController,vm,::check)
+                }
             }
         }
     }
+
+
+
 
     @Composable
     fun AdjustDialog(type: Int = 0, navController: NavHostController) {
@@ -247,21 +290,13 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun OtherScreen() {
         Column(Modifier.padding(top = 33.dp, start = 10.dp, end = 10.dp)) {
-            val devName by vm.deviceName.observeAsState(DEVICENAME_8266)
-            Text(
-                text = "target device:$devName", Modifier.clickable {
-                    val s: String = if (devName == DEVICENAME_32) DEVICENAME_8266 else DEVICENAME_32
-                    vm.deviceName.value = s
-                    MMKV.defaultMMKV().encode("deviceName", s)
-                },
-                fontSize = 30.sp
-            )
+
             Spacer(modifier = Modifier.height(20.dp))
             Text(text = "relay")
             Spacer(modifier = Modifier.height(20.dp))
-            val isOpen by vm.relayOpen.observeAsState(MMKV.defaultMMKV().decodeBool("${vm.deviceName.value}:relay", false))
+            val isOpen by vm.relayOpen.observeAsState(MMKV.defaultMMKV().decodeBool("relay", false))
             RelayRow(isOpen) {
-                this@MainActivity.doRRPC("iot/relay", if (isOpen) "off" else "on", devName)
+                this@MainActivity.doRRPC("iot/relay", if (isOpen) "off" else "on", DEVICENAME_32)
             }
             Spacer(modifier = Modifier.height(20.dp))
             Text(text = "power")
@@ -272,22 +307,22 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Button(onClick = {
-                    doRRPC("iot/power", "on", devName)
+                    doRRPC("iot/power", "on", DEVICENAME_32)
                 }) {
                     Text(text = "on")
                 }
                 Button(onClick = {
-                    doRRPC("iot/power", "off", devName)
+                    doRRPC("iot/power", "off", DEVICENAME_32)
                 }) {
                     Text(text = "off")
                 }
                 Button(onClick = {
-                    doRRPC("iot/power", "sub", devName)
+                    doRRPC("iot/power", "sub", DEVICENAME_32)
                 }) {
                     Text(text = "-")
                 }
                 Button(onClick = {
-                    doRRPC("iot/power", "add", devName)
+                    doRRPC("iot/power", "add", DEVICENAME_32)
                 }) {
                     Text(text = "+")
                 }
@@ -308,11 +343,87 @@ class MainActivity : ComponentActivity() {
                     .width(100.dp),
                 colors = ButtonDefaults.buttonColors(backgroundColor = if (isOpen) Color.Green else Color.LightGray)
             ) {
-                Text(text = if (isOpen) "off" else "on")
+                Text(text = if (isOpen) "off" else "on", color = Color.White)
             }
         }
     }
 
+
+    private suspend fun check(): StateResult {
+        var result: StateResult = checkPermission()
+        if (!result.permissionGranted) {
+            return result
+        }
+        result = checkLocation()
+        result.permissionGranted = true
+        if (result.locationRequirement) {
+            return result
+        }
+        result = checkWifi()
+        result.permissionGranted = true
+        result.locationRequirement = false
+        return result
+    }
+
+    private fun checkLocation(): StateResult {
+        val result = StateResult()
+        result.locationRequirement = true
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+
+            val manager = getSystemService(LocationManager::class.java)
+            val enable = manager != null && LocationManagerCompat.isLocationEnabled(manager)
+            if (!enable) {
+                result.message = "请打开 GPS 以获取 Wi-Fi 信息。"
+                return result
+            }
+        }
+        result.locationRequirement = false
+        return result
+    }
+
+
+    private fun checkWifi(): StateResult {
+        val result = StateResult()
+        result.wifiConnected = false
+        val mWifiManager = application.getSystemService(android.content.Context.WIFI_SERVICE) as WifiManager
+        val wifiInfo: WifiInfo = mWifiManager.getConnectionInfo()
+        val connected = TouchNetUtil.isWifiConnected(mWifiManager)
+        if (!connected) {
+            result.message = "请先连上 Wi-Fi"
+            return result
+        }
+        val ssid = TouchNetUtil.getSsidString(wifiInfo)
+        val ipValue = wifiInfo.ipAddress
+        if (ipValue != 0) {
+            result.address = TouchNetUtil.getAddress(wifiInfo.ipAddress)
+        } else {
+            result.address = TouchNetUtil.getIPv4Address()
+            if (result.address == null) {
+                result.address = TouchNetUtil.getIPv6Address()
+            }
+        }
+        result.wifiConnected = true
+        result.message = ""
+        result.is5G = com.longforus.myremotecontrol.util.TouchNetUtil.is5G(wifiInfo.frequency)
+        if (result.is5G) {
+            result.message = "当前连接的是 5G Wi-Fi, 设备仅支持 2.4G Wi-Fi"
+        }
+        result.ssid = ssid
+        result.ssidBytes = com.longforus.myremotecontrol.util.TouchNetUtil.getRawSsidBytesOrElse(wifiInfo, ssid.toByteArray())
+        result.bssid = wifiInfo.bssid
+        return result
+    }
+
+
+    suspend fun checkPermission(): StateResult = suspendCancellableCoroutine {
+        val result = StateResult()
+        PermissionX.init(this).permissions(Manifest.permission.ACCESS_FINE_LOCATION).request(
+            RequestCallback { allGranted, grantedList, deniedList ->
+                result.permissionGranted = allGranted
+                it.resumeWith(Result.success(result))
+            }
+        )
+    }
 
     @Composable
     fun HomeScreen(navController: NavHostController) {
@@ -626,7 +737,7 @@ class MainActivity : ComponentActivity() {
 
 
     @Composable
-    fun ScaffoldScreen(navController: NavHostController, float: @Composable (() -> Unit)? = null, screen: @Composable () -> Unit) {
+    fun ScaffoldScreen(navController: NavHostController, appBar: @Composable (() -> Unit)? = null, screen: @Composable () -> Unit) {
         val bottomNavigationItems = listOf(
             IconScreens.Home,
             IconScreens.Other,
@@ -635,7 +746,10 @@ class MainActivity : ComponentActivity() {
             Scaffold(
                 bottomBar = { BottomAppNavBar(navController, bottomNavigationItems) },
                 content = { screen() },
-                floatingActionButton = { float?.invoke() }
+                topBar = {
+                    appBar?.invoke()
+                },
+                modifier = Modifier.padding(top = 34.dp)
             )
         }
     }
@@ -789,14 +903,25 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             }
-                            "iot/relay"->{
-                                when(toString){
+                            "iot/relay" -> {
+                                when (toString) {
                                     "off", "on" -> {
                                         val b = toString == "on"
                                         vm.relayOpen.value = b
-                                        MMKV.defaultMMKV().encode("${vm.deviceName.value}:relay", b)
+                                        MMKV.defaultMMKV().encode("relay", b)
                                     }
-                                    else->{
+                                    else -> {
+                                        LogUtils.d(TAG, toString)
+                                        ToastUtils.showShort(toString)
+                                    }
+                                }
+                            }
+                            "settings" -> {
+                                when (toString) {
+                                    "clearPrefs" -> {
+                                        ToastUtils.showShort("clear success")
+                                    }
+                                    else -> {
                                         LogUtils.d(TAG, toString)
                                         ToastUtils.showShort(toString)
                                     }

@@ -82,7 +82,8 @@ void setup(void)
     Serial.println(wifipwd);
     prefs.putString("ssid", ssid);
     prefs.putString("wifipwd", wifipwd);
-    connMQTT("", "");
+    prefs.end();
+    connMQTT(ssid, wifipwd);
   }
   else
   {
@@ -203,15 +204,15 @@ void onConnectionEstablished()
                       Serial.println(topicStr + "  " + message);
                       recMsg = "iot/relay -> " + message;
                       fadeLed(3, 88);
-                      if (strncmp(message.c_str(), "on", 2))
-                      {
-                        digitalWrite(RELAY_PIN, LOW);
-                        Serial.printf("set pin %d to %s\n", RELAY_PIN, "low");
-                      }
-                      else if (strncmp(message.c_str(), "off", 3))
+                      if (message.equals("on"))
                       {
                         digitalWrite(RELAY_PIN, HIGH);
                         Serial.printf("set pin %d to %s\n", RELAY_PIN, "high");
+                      }
+                      else if (message.equals("off"))
+                      {
+                        digitalWrite(RELAY_PIN, LOW);
+                        Serial.printf("set pin %d to %s\n", RELAY_PIN, "low");
                       }
                       else
                       {
@@ -227,6 +228,30 @@ void onConnectionEstablished()
                       recMsg = "iot/power -> " + message;
                       client->publish(topicStr, message);
                     });
+ client->subscribe("/ext/rrpc/#/settings", [](const String &topicStr, const String &message)
+                    {
+                      Serial.println(topicStr + "  " + message);
+                      recMsg = "settings -> " + message;
+                      
+                      if (message.equals("clearPrefs"))
+                      {
+                        prefs.begin("settings");
+                        if (prefs.clear())
+                        {
+                           Serial.printf("prefs cleared\n");
+                           client->publish(topicStr, message);
+                           delay(200);
+                           ESP.restart();
+                        }else{
+                          Serial.printf("prefs clear fail\n");
+                           client->publish(topicStr, "clearPrefsFail");
+                        }
+                        prefs.end();
+                      }
+                      
+                    });
+
+
 
   // client ->subscribe("volumio", [](const String &topicStr, const String &message)
   //                  {
