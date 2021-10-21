@@ -206,6 +206,7 @@ void onConnectionEstablished()
                        //value = 486CE01F addr = 13842 command = 7
                      case hash_str_to_uint32("input"):
                        irsend.sendNEC(0x486CE01FUL);
+                       delay(300);
                        irsend.sendNEC(0x486CE01FUL);
                        break;
                      case hash_str_to_uint32("timerCancel"):
