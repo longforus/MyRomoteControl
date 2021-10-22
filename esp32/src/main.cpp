@@ -8,13 +8,18 @@
 #include "EspMQTTclient.h"
 #include "Account.h"
 #include <Preferences.h>
+#include <NTPClient.h>
+#include <RTClib.h>
 
 #define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
 #include "esp_log.h"
-
 Preferences prefs;
 Ticker ledTiker;
 Ticker btnTiker;
+
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, "ntp1.aliyun.com", 60 * 60 * 8, 30 * 60 * 1000);
+DateTime now;
 
 EspMQTTClient *client;
 
@@ -127,16 +132,34 @@ void connMQTT(String ssid, String pwd)
   Serial.printf("client inited %p\n", client);
 }
 
-int initFlag = 1;
+int initFlag = 0;
 
 void loop(void)
 {
   client->loop();
   //now = baseTime.operator + (TimeSpan((millis() - millisTimeUpdated) / 1000));
-  if (WiFi.status() == WL_CONNECTED && initFlag)
+  if (WiFi.status() == WL_CONNECTED)
   {
-    Serial.println("conncet success");
-    initFlag = 0;
+    if (!initFlag)
+    {
+      timeClient.begin();
+      ledTiker.detach();
+      initFlag = 1;
+      Serial.println("conncet success");
+    }
+    timeClient.update();
+    now = DateTime(timeClient.getEpochTime());
+    char date_str[40];
+    sprintf(date_str, "%02d:%02d:%02d", now.hour(), now.minute(), now.second());
+    // Serial.println(date_str);
+    if (now.second() % 2 == 0)
+    {
+      digitalWrite(BLUE_LED_PIN, HIGH);
+    }
+    else
+    {
+      digitalWrite(BLUE_LED_PIN, LOW);
+    }
   }
 }
 
@@ -228,30 +251,29 @@ void onConnectionEstablished()
                       recMsg = "iot/power -> " + message;
                       client->publish(topicStr, message);
                     });
- client->subscribe("/ext/rrpc/#/settings", [](const String &topicStr, const String &message)
+  client->subscribe("/ext/rrpc/#/settings", [](const String &topicStr, const String &message)
                     {
                       Serial.println(topicStr + "  " + message);
                       recMsg = "settings -> " + message;
-                      
+
                       if (message.equals("clearPrefs"))
                       {
                         prefs.begin("settings");
                         if (prefs.clear())
                         {
-                           Serial.printf("prefs cleared\n");
-                           client->publish(topicStr, message);
-                           delay(200);
-                           ESP.restart();
-                        }else{
+                          Serial.printf("prefs cleared\n");
+                          client->publish(topicStr, message);
+                          delay(200);
+                          ESP.restart();
+                        }
+                        else
+                        {
                           Serial.printf("prefs clear fail\n");
-                           client->publish(topicStr, "clearPrefsFail");
+                          client->publish(topicStr, "clearPrefsFail");
                         }
                         prefs.end();
                       }
-                      
                     });
-
-
 
   // client ->subscribe("volumio", [](const String &topicStr, const String &message)
   //                  {

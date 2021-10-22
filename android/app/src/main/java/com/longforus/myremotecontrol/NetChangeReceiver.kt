@@ -8,7 +8,7 @@ import android.net.wifi.WifiManager
 import kotlinx.coroutines.flow.MutableSharedFlow
 
 class NetChangeReceiver(private val onChange: MutableSharedFlow<String>) : BroadcastReceiver() {
-    override fun onReceive(p0: Context?, intent: Intent?) {
+    override fun onReceive(context: Context?, intent: Intent?) {
         val action: String = intent?.getAction() ?: return
 
         when (action) {
