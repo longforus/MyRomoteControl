@@ -14,6 +14,7 @@ import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -34,6 +35,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -183,13 +185,11 @@ class MainActivity : AppCompatActivity() {
                     defaultValue = DEVICENAME_8266
                     type = NavType.StringType
                 })) {
-                    TouchDialog(navController,vm,::check)
+                    TouchDialog(navController, vm, ::check)
                 }
             }
         }
     }
-
-
 
 
     @Composable
@@ -607,7 +607,7 @@ class MainActivity : AppCompatActivity() {
                 .clip(RoundedCornerShape(10.dp))
                 .background(Color(0xffefefef))
         ) {
-            val (tvVol, tvSource) = createRefs()
+            val (tvVol, tvSource, icon) = createRefs()
             if (dacIsOpen) {
                 Text(buildAnnotatedString {
                     withStyle(style = SpanStyle(fontSize = 123.sp, fontWeight = FontWeight.Bold)) {
@@ -628,6 +628,13 @@ class MainActivity : AppCompatActivity() {
                             })
                         }
                 )
+                fun onChangeInputSource(){
+                    vm.dacInputSource.value =
+                        if (vm.dacInputSource.value == DacInputSource.USB) DacInputSource.COAXIAL else DacInputSource.USB
+                    MMKV
+                        .defaultMMKV()
+                        .encode(DAC_SOURCE_KEY, vm.dacInputSource.value?.name)
+                }
                 Text(dacInputSource.name, fontSize = 30.sp, fontWeight = FontWeight.W400, modifier = Modifier
                     .constrainAs(tvSource) {
                         start.linkTo(tvVol.end)
@@ -636,10 +643,21 @@ class MainActivity : AppCompatActivity() {
                     }
                     .pointerInput(Unit) {
                         detectTapGestures(onLongPress = {
-                            vm.dacInputSource.value = if (vm.dacInputSource.value==DacInputSource.USB) DacInputSource.COAXIAL else DacInputSource.USB
-                            MMKV.defaultMMKV().encode(DAC_SOURCE_KEY, vm.dacInputSource.value?.name)
+                            onChangeInputSource()
                         })
                     })
+                Image(painterResource(if (dacInputSource == DacInputSource.USB) R.drawable.usb else R.drawable.coaxial),
+                    contentDescription =
+                    null,
+                    Modifier.constrainAs(icon) {
+                            bottom.linkTo(tvSource.top,8.dp)
+                            start.linkTo(tvSource.start)
+                            end.linkTo(tvSource.end)
+                        } .pointerInput(Unit) {
+                            detectTapGestures(onLongPress = {
+                                onChangeInputSource()
+                            })
+                        })
             } else {
                 Text(buildAnnotatedString {
                     withStyle(style = SpanStyle(fontSize = 123.sp, fontWeight = FontWeight.Bold, color = Color.Gray)) {
