@@ -464,7 +464,7 @@ class MainActivity : AppCompatActivity() {
                             }
                             .pointerInput(Unit) {
                                 detectTapGestures(onLongPress = {
-                                    navController.navigate("adjustValue?type=4")
+                                    switchACPower()
                                 })
                             }
                     )
@@ -494,7 +494,7 @@ class MainActivity : AppCompatActivity() {
                             }
                             .pointerInput(Unit) {
                                 detectTapGestures(onLongPress = {
-                                    navController.navigate("adjustValue?type=2")
+                                    switchDacPower()
                                 })
                             }
                     )
@@ -516,7 +516,7 @@ class MainActivity : AppCompatActivity() {
                         .width(80.dp)
                         .pointerInput(Unit) {
                             detectTapGestures(onLongPress = {
-                                navController.navigate("adjustValue?type=4")
+                                switchACPower()
                             })
                         },
                     colors = ButtonDefaults.buttonColors(backgroundColor = if (acIsOpen) Purple500 else Color.LightGray)
@@ -582,6 +582,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun switchACPower() {
+        val b = !(vm.acOpen.value ?: false)
+        vm.acOpen.value = b
+        MMKV.defaultMMKV().encode(AC_POWER_STATUS_KEY, b)
+    }
+
     @Composable
     private fun DacSpace(navController: NavHostController) {
         Text(text = "Dac")
@@ -630,7 +636,8 @@ class MainActivity : AppCompatActivity() {
                     }
                     .pointerInput(Unit) {
                         detectTapGestures(onLongPress = {
-                            navController.navigate("adjustValue?type=1")
+                            vm.dacInputSource.value = if (vm.dacInputSource.value==DacInputSource.USB) DacInputSource.COAXIAL else DacInputSource.USB
+                            MMKV.defaultMMKV().encode(DAC_SOURCE_KEY, vm.dacInputSource.value?.name)
                         })
                     })
             } else {
@@ -648,7 +655,7 @@ class MainActivity : AppCompatActivity() {
                         }
                         .pointerInput(Unit) {
                             detectTapGestures(onLongPress = {
-                                navController.navigate("adjustValue?type=2")
+                                switchDacPower()
                             })
                         }
                 )
@@ -670,7 +677,7 @@ class MainActivity : AppCompatActivity() {
                     .width(80.dp)
                     .pointerInput(Unit) {
                         detectTapGestures(onLongPress = {
-                            navController.navigate("adjustValue?type=2")
+                            switchDacPower()
                         })
                     },
                 colors = ButtonDefaults.buttonColors(backgroundColor = if (dacIsOpen) Purple500 else Color.LightGray)
@@ -733,6 +740,12 @@ class MainActivity : AppCompatActivity() {
         ) {
             Text(text = if (dacTime > System.currentTimeMillis()) timeFormat.format(dacTime) else "Timer")
         }
+    }
+
+    private fun switchDacPower() {
+        val b = !(vm.dacOpen.value ?: false)
+        vm.dacOpen.value = b
+        MMKV.defaultMMKV().encode(DAC_POWER_STATUS_KEY, b)
     }
 
 
