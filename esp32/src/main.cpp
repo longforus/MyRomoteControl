@@ -13,6 +13,38 @@
 
 #define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
 #include "esp_log.h"
+
+#define i2cOLED
+#ifdef i2cOLED
+#include "SSD1306Wire.h"
+#include "SH1106.h"
+#endif
+#include "OLEDDisplayUi.h"
+#ifdef i2cOLED
+// Pin definitions for I2C OLED
+const int I2C_DISPLAY_ADDRESS = 0x3C;
+const int SDA_PIN = 23;
+const int SCL_PIN = 22;
+#endif
+
+#ifdef i2cOLED
+SSD1306Wire display(I2C_DISPLAY_ADDRESS, SDA_PIN, SCL_PIN); // I2C OLED
+//SH1106 display(I2C_DISPLAY_ADDRESS, SDA_PIN, SCL_PIN); // I2C OLED
+#endif
+
+OLEDDisplayUi ui(&display);
+
+//declaring prototypes
+void drawProfile(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y);
+void drawHardwareInfo(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y);
+// this array keeps function pointers to all frames
+// frames are the single views that slide from right to left
+FrameCallback frames[] = {drawProfile, drawHardwareInfo};
+int numberOfFrames = 2;
+
+char monName[12][4] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+char wdayName[7][4] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+
 Preferences prefs;
 Ticker ledTiker;
 Ticker btnTiker;
@@ -28,6 +60,7 @@ unsigned long millisTimeUpdated = millis();
 static const uint8_t BLUE_LED_PIN = 15;
 static const uint8_t RELAY_PIN = 14;
 
+void drawSplash(OLEDDisplay *display, String label);
 void fadeLed(int count, int delayMill);
 void led_timer_toggle(int count);
 void switchRelay();
@@ -42,11 +75,25 @@ void setup(void)
 {
   Serial.setRxBufferSize(1024);
   Serial.begin(115200);
+
+
+  esp_log_level_set("*", ESP_LOG_DEBUG); // set all components to ERROR level
+    // initialize dispaly
+  display.init();
+  display.clear();
+  display.display();
+  //display.flipScreenVertically();
+  display.flipScreenVertically(); // Comment out to flip display 180deg
+  display.setFont(ArialMT_Plain_10);
+  display.setTextAlignment(TEXT_ALIGN_CENTER);
+  display.setContrast(255);
+  drawSplash(&display, "long for us");
+  delay(1000);
   char chipID[8];
   snprintf(chipID, sizeof chipID, "%lu", (unsigned long)ESP.getEfuseMac());
   Serial.printf("chipId = %s\n", chipID);
-
-  esp_log_level_set("*", ESP_LOG_DEBUG); // set all components to ERROR level
+  drawSplash(&display, chipID);
+  delay(1000);
 
   prefs.begin("settings");
   String ssid = prefs.getString("ssid", "");
@@ -59,7 +106,10 @@ void setup(void)
     WiFi.mode(WIFI_AP_STA);
     WiFi.beginSmartConfig();
     //Wait for SmartConfig packet from mobile
-    Serial.println("Waiting for SmartConfig.");
+    recMsg = "Waiting for SmartConfig.";
+    Serial.println(recMsg);
+    drawSplash(&display,recMsg);
+    delay(500);
     while (!WiFi.smartConfigDone())
     {
       delay(500);
@@ -67,19 +117,31 @@ void setup(void)
     }
 
     Serial.println("");
-    Serial.println("SmartConfig received.");
-
+    recMsg = "SmartConfig received.";
+    Serial.println(recMsg);
+    drawSplash(&display,recMsg);
+    delay(1000);
     //Wait for WiFi to connect to AP
-    Serial.println("Waiting for WiFi");
+    recMsg = "Waiting for WiFi";
+    Serial.println(recMsg);
+    drawSplash(&display,recMsg);
+    delay(1000);
     while (WiFi.status() != WL_CONNECTED)
     {
       delay(500);
       Serial.print(".");
     }
-    Serial.println("WiFi Connected.");
+    recMsg = "WiFi Connected.";
+    Serial.println(recMsg);
+    drawSplash(&display,recMsg);
+    delay(1000);
+    Serial.println();
     Serial.print("IP Address: ");
     Serial.println(WiFi.localIP());
     ssid = WiFi.SSID();
+    recMsg = "SmartConfig OK : "+ssid;
+    drawSplash(&display,recMsg);
+    delay(1500);
     wifipwd = WiFi.psk();
     Serial.print("ssid: ");
     Serial.println(ssid);
@@ -92,6 +154,9 @@ void setup(void)
   }
   else
   {
+    recMsg = "Connecting WiFi to "+ ssid +" ...";
+    drawSplash(&display,recMsg);
+    delay(1500);
     connMQTT(ssid, wifipwd);
   }
 
@@ -99,8 +164,29 @@ void setup(void)
   pinMode(BLUE_LED_PIN, OUTPUT);
   pinMode(RELAY_PIN, OUTPUT);
   digitalWrite(RELAY_PIN, LOW);
-
   ledTiker.attach_ms(200, led_timer_toggle, -1);
+
+  ui.setTargetFPS(30);
+  ui.setTimePerFrame(5000);
+  // You can change the transition that is used
+  // SLIDE_LEFT, SLIDE_RIGHT, SLIDE_TOP, SLIDE_DOWN
+  ui.setFrameAnimation(SLIDE_UP);
+  // Add frames
+  ui.setFrames(frames, numberOfFrames);
+  ui.disableAllIndicators();
+  // Inital UI takes care of initalising the display too.
+  //ui.init();
+  ui.enableAutoTransition();
+}
+
+
+void drawSplash(OLEDDisplay *display, String label)
+{
+  display->clear();
+  display->setTextAlignment(TEXT_ALIGN_CENTER_BOTH);
+  display->setFont(ArialMT_Plain_10);
+  display->drawString(64, 32, label);
+  display->display();
 }
 
 void connMQTT(String ssid, String pwd)
@@ -160,6 +246,14 @@ void loop(void)
     {
       digitalWrite(BLUE_LED_PIN, LOW);
     }
+  }
+  int remainingTimeBudget = ui.update();
+  if (remainingTimeBudget > 0)
+  {
+    // You can do some work here
+    // Don't do stuff if you are below your
+    // time budget.
+    delay(remainingTimeBudget);
   }
 }
 
@@ -291,4 +385,70 @@ void onConnectionEstablished()
   // Execute delayed instructions
   // client ->executeDelayed(5 * 1000, []()
   //                       { client ->publish("mytopic/wildcardtest/test123", "This is a message sent 5 seconds later"); });
+}
+
+void drawProfile(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
+{
+  //now = DateTime(millis());
+
+  char date_str[40];
+
+  display->setTextAlignment(TEXT_ALIGN_CENTER);
+  display->setFont(ArialMT_Plain_10);
+
+  display->drawString(64 + x, 0 + y, "long for us");
+  display->drawHorizontalLine(0 + x, 13 + y, 128);
+
+  display->setFont(ArialMT_Plain_24);
+  display->setTextAlignment(TEXT_ALIGN_LEFT);
+
+  sprintf(date_str, "%02d:%02d:%02d", now.hour(), now.minute(), now.second());
+  display->drawString(x + 16, 16 + y, date_str);
+
+  snprintf_P(date_str,
+             sizeof(date_str),
+             PSTR("%04u-%02u-%02u (%03s)"),
+             now.year(), now.month(), now.day(), wdayName[now.dayOfTheWeek()]);
+
+  display->setTextAlignment(TEXT_ALIGN_CENTER);
+  display->setFont(ArialMT_Plain_10);
+  display->drawString(64 + x, 41 + y, date_str);
+
+  String uptime = "Uptime ";
+
+  int days = 0;
+  long up_time = (millis() - millisTimeUpdated) / 1000;
+  if (up_time > 3600 * 24)
+  {
+    days = up_time / (3600 * 24);
+    up_time = up_time % (3600 * 24);
+    uptime = uptime + (String)(days) + "days ";
+  }
+  int hours = 0;
+  int mins = 0;
+  hours = up_time / 3600;
+  up_time = up_time % 3600;
+  uptime = uptime + ((hours < 10) ? "0" : "") + (String)(hours) + ":";
+  mins = up_time / 60;
+  uptime = uptime + ((mins < 10) ? "0" : "") + (String)(mins);
+
+  display->setTextAlignment(TEXT_ALIGN_CENTER);
+  display->drawString(64 + x, 52 + y, uptime);
+}
+
+void drawHardwareInfo(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
+{
+
+  display->setTextAlignment(TEXT_ALIGN_LEFT);
+  display->setFont(ArialMT_Plain_10);
+
+  String title = recMsg;
+  display->drawString(0 + x, 0 + y, title);
+
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    String ipstr = "IP : ";
+    ipstr += WiFi.localIP().toString();
+    display->drawString(0 + x, 13 + y, ipstr);
+  }
 }
