@@ -17,7 +17,6 @@
 #define i2cOLED
 #ifdef i2cOLED
 #include "SSD1306Wire.h"
-#include "SH1106.h"
 #endif
 #include "OLEDDisplayUi.h"
 #ifdef i2cOLED
@@ -29,7 +28,6 @@ const int SCL_PIN = 22;
 
 #ifdef i2cOLED
 SSD1306Wire display(I2C_DISPLAY_ADDRESS, SDA_PIN, SCL_PIN); // I2C OLED
-//SH1106 display(I2C_DISPLAY_ADDRESS, SDA_PIN, SCL_PIN); // I2C OLED
 #endif
 
 OLEDDisplayUi ui(&display);
