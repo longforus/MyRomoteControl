@@ -19,6 +19,8 @@
 #include "SSD1306Wire.h"
 #endif
 #include "OLEDDisplayUi.h"
+
+#include "driver/uart.h"
 #ifdef i2cOLED
 // Pin definitions for I2C OLED
 const int I2C_DISPLAY_ADDRESS = 0x3C;
@@ -64,19 +66,40 @@ void led_timer_toggle(int count);
 void switchRelay();
 String getRelayStatus();
 void connMQTT(String ssid, String pwd);
+int hex_char_value(char c);
+int hex_to_decimal(const char *szHex, int len);
 
 String recMsg = "connecting to wifi...";
 int ledDelay = 0;
 
+#define ECHO_TXD2 (GPIO_NUM_17)
+#define ECHO_RXD2 (GPIO_NUM_16)
+#define ECHO_TEST_RTS (UART_PIN_NO_CHANGE)
+#define ECHO_TEST_CTS (UART_PIN_NO_CHANGE)
+
+#define BUF_SIZE (1024)
+
+/* Configure parameters of an UART driver,
+     * communication pins and install the driver */
+uart_config_t uart_config = {
+    .baud_rate = 9600,
+    .data_bits = UART_DATA_8_BITS,
+    .parity = UART_PARITY_DISABLE,
+    .stop_bits = UART_STOP_BITS_1,
+    .flow_ctrl = UART_HW_FLOWCTRL_DISABLE};
+
 //三极管电流从P到N, 电流大的是E
 void setup(void)
 {
-  Serial.setRxBufferSize(1024);
+  Serial.setRxBufferSize(BUF_SIZE);
   Serial.begin(115200);
 
+  uart_param_config(UART_NUM_2, &uart_config);
+  uart_set_pin(UART_NUM_2, ECHO_TXD2, ECHO_RXD2, ECHO_TEST_RTS, ECHO_TEST_CTS);
+  uart_driver_install(UART_NUM_2, BUF_SIZE * 2, 0, 0, NULL, 0);
 
   esp_log_level_set("*", ESP_LOG_DEBUG); // set all components to ERROR level
-    // initialize dispaly
+ // initialize dispaly
   display.init();
   display.clear();
   display.display();
@@ -106,7 +129,7 @@ void setup(void)
     //Wait for SmartConfig packet from mobile
     recMsg = "Waiting for SmartConfig.";
     Serial.println(recMsg);
-    drawSplash(&display,recMsg);
+    drawSplash(&display, recMsg);
     delay(500);
     while (!WiFi.smartConfigDone())
     {
@@ -117,12 +140,12 @@ void setup(void)
     Serial.println("");
     recMsg = "SmartConfig received.";
     Serial.println(recMsg);
-    drawSplash(&display,recMsg);
+    drawSplash(&display, recMsg);
     delay(1000);
     //Wait for WiFi to connect to AP
     recMsg = "Waiting for WiFi";
     Serial.println(recMsg);
-    drawSplash(&display,recMsg);
+    drawSplash(&display, recMsg);
     delay(1000);
     while (WiFi.status() != WL_CONNECTED)
     {
@@ -131,14 +154,14 @@ void setup(void)
     }
     recMsg = "WiFi Connected.";
     Serial.println(recMsg);
-    drawSplash(&display,recMsg);
+    drawSplash(&display, recMsg);
     delay(1000);
     Serial.println();
     Serial.print("IP Address: ");
     Serial.println(WiFi.localIP());
     ssid = WiFi.SSID();
-    recMsg = "SmartConfig OK : "+ssid;
-    drawSplash(&display,recMsg);
+    recMsg = "SmartConfig OK : " + ssid;
+    drawSplash(&display, recMsg);
     delay(1500);
     wifipwd = WiFi.psk();
     Serial.print("ssid: ");
@@ -152,8 +175,8 @@ void setup(void)
   }
   else
   {
-    recMsg = "Connecting WiFi to "+ ssid +" ...";
-    drawSplash(&display,recMsg);
+    recMsg = "Connecting WiFi to " + ssid + " ...";
+    drawSplash(&display, recMsg);
     delay(1500);
     connMQTT(ssid, wifipwd);
   }
@@ -176,7 +199,6 @@ void setup(void)
   //ui.init();
   ui.enableAutoTransition();
 }
-
 
 void drawSplash(OLEDDisplay *display, String label)
 {
@@ -337,11 +359,25 @@ void onConnectionEstablished()
                           topicStr, getRelayStatus());
                     });
 
-  client->subscribe("/ext/rrpc/#/iot/power", [](const String &topicStr, const String &message)
+  client->subscribe("/ext/rrpc/#/iot/serial", [](const String &topicStr, const String &message)
                     {
-                      Serial.println(topicStr + "  " + message);
-                      recMsg = "iot/power -> " + message;
-                      client->publish(topicStr, message);
+                      Serial.println(topicStr + "  " + message.c_str());
+                      recMsg = "iot/serial -> " + message;
+                      int len = message.length();
+                      char arr[len / 2];
+                      char str[2];
+                      for (size_t i = 0; i < len; i = i + 2)
+                      {
+                        str[0] = message.charAt(i);
+                        str[1] = message.charAt(i + 1);
+                        int dec = hex_to_decimal(str, 2);
+                        Serial.printf("str = %s ,dec = %d \n", str, dec);
+                        arr[i / 2] = (char)dec;
+                      }
+                      len /= 2;
+                      Serial.printf("arr len = %d \n", len);
+                      uart_write_bytes(UART_NUM_2, arr, len);
+                      client->publish(topicStr, message.c_str());
                     });
   client->subscribe("/ext/rrpc/#/settings", [](const String &topicStr, const String &message)
                     {
@@ -449,4 +485,24 @@ void drawHardwareInfo(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x
     ipstr += WiFi.localIP().toString();
     display->drawString(0 + x, 13 + y, ipstr);
   }
+}
+
+int hex_char_value(char c)
+{
+  if (c >= '0' && c <= '9')
+    return c - '0';
+  else if (c >= 'a' && c <= 'f')
+    return (c - 'a' + 10);
+  else if (c >= 'A' && c <= 'F')
+    return (c - 'A' + 10);
+  return 0;
+}
+int hex_to_decimal(const char *szHex, int len)
+{
+  int result = 0;
+  for (int i = 0; i < len; i++)
+  {
+    result += (int)pow((float)16, (int)len - i - 1) * hex_char_value(szHex[i]);
+  }
+  return result;
 }

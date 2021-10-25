@@ -2,7 +2,6 @@ package com.longforus.myremotecontrol
 
 
 import android.Manifest
-import android.content.Context
 import android.location.LocationManager
 import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
@@ -50,6 +49,7 @@ import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.core.location.LocationManagerCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
@@ -143,7 +143,7 @@ class MainActivity : AppCompatActivity() {
                             Icon(Icons.Default.TapAndPlay, contentDescription = null, Modifier.clickable {
                                 navController.navigate("espTouch?device=${DEVICENAME_8266}")
                             })
-                            Spacer(modifier = Modifier.width(3.dp))
+                            Spacer(modifier = Modifier.width(13.dp))
                             Icon(Icons.Default.Clear, contentDescription = null, Modifier.clickable {
                                 doRRPC("settings", "clearPrefs", DEVICENAME_8266)
                             })
@@ -164,7 +164,7 @@ class MainActivity : AppCompatActivity() {
                             Icon(Icons.Default.TapAndPlay, contentDescription = null, Modifier.clickable {
                                 navController.navigate("espTouch?device=${DEVICENAME_32}")
                             })
-                            Spacer(modifier = Modifier.width(3.dp))
+                            Spacer(modifier = Modifier.width(13.dp))
                             Icon(Icons.Default.Clear, contentDescription = null, Modifier.clickable {
                                 doRRPC("settings", "clearPrefs", DEVICENAME_32)
                             })
@@ -289,9 +289,7 @@ class MainActivity : AppCompatActivity() {
 
     @Composable
     fun OtherScreen() {
-        Column(Modifier.padding(top = 33.dp, start = 10.dp, end = 10.dp)) {
-
-            Spacer(modifier = Modifier.height(20.dp))
+        Column(Modifier.padding(start = 10.dp, end = 10.dp)) {
             Text(text = "relay")
             Spacer(modifier = Modifier.height(20.dp))
             val isOpen by vm.relayOpen.observeAsState(MMKV.defaultMMKV().decodeBool("relay", false))
@@ -299,18 +297,64 @@ class MainActivity : AppCompatActivity() {
                 this@MainActivity.doRRPC("iot/relay", if (isOpen) "off" else "on", DEVICENAME_32)
             }
             Spacer(modifier = Modifier.height(20.dp))
-            Text(text = "power")
+            Text(text = "serial")
             Spacer(modifier = Modifier.height(20.dp))
+            var board by remember {
+                mutableStateOf("0")
+            }
+            var locker by remember {
+                mutableStateOf("1")
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.height
+                (60.dp)) {
+                OutlinedTextField(
+                    value = board,
+                    onValueChange = {
+                        board = it
+                    },
+                    singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    label = {
+                        Text(text = "board")
+                    }, modifier = Modifier.fillMaxHeight()
+                )
+                Spacer(modifier = Modifier.width(15.dp))
+                Button(onClick = {
+                    if (board.isNotEmpty() && locker.isNotEmpty()) {
+                        doRRPC("iot/serial", openLockCommand(board.toInt(), locker.toInt()), DEVICENAME_32)
+                    } else {
+                        ToastUtils.nonNull("board or locker")
+                    }
+                }, modifier = Modifier.fillMaxHeight().width(80.dp)) {
+                    Text(text = "status")
+                }
+            }
+            Spacer(modifier = Modifier.height(20.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceAround, modifier = Modifier.height(60.dp)
+            ) {
+
+                OutlinedTextField(value = locker, onValueChange = {
+                    locker = it
+                }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), label = {
+                    Text(text = "locker")
+                }, modifier = Modifier.fillMaxHeight())
+                Spacer(modifier = Modifier.width(15.dp))
+                Button(onClick = {
+                    if (board.isNotEmpty() && locker.isNotEmpty()) {
+                        doRRPC("iot/serial", openLockCommand(board.toInt(), locker.toInt()), DEVICENAME_32)
+                    } else {
+                        ToastUtils.nonNull("board or locker")
+                    }
+                }, modifier = Modifier.fillMaxHeight().width(80.dp)) {
+                    Text(text = "open")
+                }
+
+            }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceAround,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().padding(top = 20.dp)
             ) {
-                Button(onClick = {
-                    doRRPC("iot/power", "on", DEVICENAME_32)
-                }) {
-                    Text(text = "on")
-                }
                 Button(onClick = {
                     doRRPC("iot/power", "off", DEVICENAME_32)
                 }) {
@@ -426,7 +470,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     @Composable
-    fun HomeScreen(navController: NavHostController) {
+    @Preview
+    fun HomeScreen(navController: NavHostController = rememberNavController()) {
         Column(Modifier.padding(10.dp)) {
             DacSpace(navController)
             Spacer(modifier = Modifier.height(20.dp))
@@ -628,7 +673,7 @@ class MainActivity : AppCompatActivity() {
                             })
                         }
                 )
-                fun onChangeInputSource(){
+                fun onChangeInputSource() {
                     vm.dacInputSource.value =
                         if (vm.dacInputSource.value == DacInputSource.USB) DacInputSource.COAXIAL else DacInputSource.USB
                     MMKV
@@ -647,13 +692,14 @@ class MainActivity : AppCompatActivity() {
                         })
                     })
                 Image(painterResource(if (dacInputSource == DacInputSource.USB) R.drawable.usb else R.drawable.coaxial),
-                    contentDescription =
-                    null,
-                    Modifier.constrainAs(icon) {
-                            bottom.linkTo(tvSource.top,8.dp)
+                    contentDescription = null,
+                    Modifier
+                        .constrainAs(icon) {
+                            bottom.linkTo(tvSource.top, 8.dp)
                             start.linkTo(tvSource.start)
                             end.linkTo(tvSource.end)
-                        } .pointerInput(Unit) {
+                        }
+                        .pointerInput(Unit) {
                             detectTapGestures(onLongPress = {
                                 onChangeInputSource()
                             })
@@ -841,10 +887,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun doRRPC(topic: String, content: String, devName: String) {
+        doRRPC(topic, content.toByteArray(), devName)
+    }
+
+    private fun doRRPC(topic: String, content: ByteArray, devName: String) {
         val request = RRpcRequest()
         request.setProductKey(PRODUCTKEY)
         request.setDeviceName(devName)
-        request.setRequestBase64Byte(Base64.encodeToString(content.toByteArray(), Base64.DEFAULT))
+        request.setRequestBase64Byte(Base64.encodeToString(content, Base64.DEFAULT))
         request.setTimeout(8000)
         request.setTopic("/$PRODUCTKEY/$devName/user/$topic")
         request.setIotInstanceId(InstanceId)
