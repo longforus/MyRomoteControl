@@ -7,9 +7,6 @@ import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Bundle
-import android.util.Base64
-import android.util.Log
-import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -33,7 +30,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -44,19 +40,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.core.location.LocationManagerCompat
-import androidx.fragment.app.FragmentActivity
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
-import com.aliyun.iot20180120.models.PubRequest
-import com.aliyun.iot20180120.models.RRpcRequest
-import com.aliyun.iot20180120.models.RRpcResponse
 import com.longforus.myremotecontrol.bean.AcMode
 import com.longforus.myremotecontrol.bean.DacInputSource
 import com.longforus.myremotecontrol.bean.IconScreens
@@ -64,7 +53,6 @@ import com.longforus.myremotecontrol.bean.StateResult
 import com.longforus.myremotecontrol.ui.theme.Purple500
 import com.longforus.myremotecontrol.ui.theme.Purple700
 import com.longforus.myremotecontrol.ui.theme.myremotecontrolTheme
-import com.longforus.myremotecontrol.util.LogUtils
 import com.longforus.myremotecontrol.util.StatusBarUtil
 import com.longforus.myremotecontrol.util.TouchNetUtil
 import com.permissionx.guolindev.PermissionX
@@ -73,8 +61,6 @@ import com.tencent.mmkv.MMKV
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import java.text.SimpleDateFormat
-import kotlin.math.max
-import kotlin.math.min
 
 
 val LocalNavCtrl = staticCompositionLocalOf<NavHostController?> {
@@ -104,10 +90,10 @@ class MainActivity : AppCompatActivity() {
 
     private val timeFormat = SimpleDateFormat("HH:mm:ss")
 
-    private var dacTimerJob: Job? = null
 
     val TAG = "MainActivity"
 
+    private val clientHolder by lazy { ClientHolder(vm) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -145,7 +131,7 @@ class MainActivity : AppCompatActivity() {
                             })
                             Spacer(modifier = Modifier.width(13.dp))
                             Icon(Icons.Default.Clear, contentDescription = null, Modifier.clickable {
-                                doRRPC("settings", "clearPrefs", DEVICENAME_8266)
+                                clientHolder.doRRPC("settings", "clearPrefs", DEVICENAME_8266)
                             })
                         })
                     }) {
@@ -166,7 +152,7 @@ class MainActivity : AppCompatActivity() {
                             })
                             Spacer(modifier = Modifier.width(13.dp))
                             Icon(Icons.Default.Clear, contentDescription = null, Modifier.clickable {
-                                doRRPC("settings", "clearPrefs", DEVICENAME_32)
+                                clientHolder.doRRPC("settings", "clearPrefs", DEVICENAME_32)
                             })
                         })
                     }) {
@@ -221,7 +207,7 @@ class MainActivity : AppCompatActivity() {
                     MMKV.defaultMMKV().encode(DAC_POWER_STATUS_KEY, b)
                 }
                 3 -> {
-                    doRRPC("home/dac", "timer:$text", DEVICENAME_8266)
+                    clientHolder.doRRPC("home/dac", "timer:$text", DEVICENAME_8266)
                 }
                 4 -> {
                     val b = text == "1"
@@ -294,7 +280,7 @@ class MainActivity : AppCompatActivity() {
             Spacer(modifier = Modifier.height(20.dp))
             val isOpen by vm.relayOpen.observeAsState(MMKV.defaultMMKV().decodeBool("relay", false))
             RelayRow(isOpen) {
-                this@MainActivity.doRRPC("iot/relay", if (isOpen) "off" else "on", DEVICENAME_32)
+                this@MainActivity. clientHolder.doRRPC("iot/relay", if (isOpen) "off" else "on", DEVICENAME_32)
             }
             Spacer(modifier = Modifier.height(20.dp))
             Text(text = "serial")
@@ -320,7 +306,7 @@ class MainActivity : AppCompatActivity() {
                 Spacer(modifier = Modifier.width(15.dp))
                 Button(onClick = {
                     if (board.isNotEmpty() && locker.isNotEmpty()) {
-                        doRRPC("iot/serial", openLockCommand(board.toInt(), locker.toInt()), DEVICENAME_32)
+                        clientHolder.doRRPC("iot/serial", openLockCommand(board.toInt(), locker.toInt()), DEVICENAME_32)
                     } else {
                         ToastUtils.nonNull("board or locker")
                     }
@@ -341,7 +327,7 @@ class MainActivity : AppCompatActivity() {
                 Spacer(modifier = Modifier.width(15.dp))
                 Button(onClick = {
                     if (board.isNotEmpty() && locker.isNotEmpty()) {
-                        doRRPC("iot/serial", openLockCommand(board.toInt(), locker.toInt()), DEVICENAME_32)
+                        clientHolder.doRRPC("iot/serial", openLockCommand(board.toInt(), locker.toInt()), DEVICENAME_32)
                     } else {
                         ToastUtils.nonNull("board or locker")
                     }
@@ -356,17 +342,17 @@ class MainActivity : AppCompatActivity() {
                 modifier = Modifier.fillMaxWidth().padding(top = 20.dp)
             ) {
                 Button(onClick = {
-                    doRRPC("iot/power", "off", DEVICENAME_32)
+                    clientHolder.doRRPC("iot/power", "off", DEVICENAME_32)
                 }) {
                     Text(text = "off")
                 }
                 Button(onClick = {
-                    doRRPC("iot/power", "sub", DEVICENAME_32)
+                    clientHolder.doRRPC("iot/power", "sub", DEVICENAME_32)
                 }) {
                     Text(text = "-")
                 }
                 Button(onClick = {
-                    doRRPC("iot/power", "add", DEVICENAME_32)
+                    clientHolder.doRRPC("iot/power", "add", DEVICENAME_32)
                 }) {
                     Text(text = "+")
                 }
@@ -555,7 +541,7 @@ class MainActivity : AppCompatActivity() {
             ) {
                 Button(
                     onClick = {
-                        doRRPC("home/ac", if (acIsOpen) "off" else "on", DEVICENAME_8266)
+                        clientHolder.doRRPC("home/ac", if (acIsOpen) "off" else "on", DEVICENAME_8266)
                     }, modifier = Modifier
                         .height(80.dp)
                         .width(80.dp)
@@ -576,7 +562,7 @@ class MainActivity : AppCompatActivity() {
                 ) {
                     Button(
                         onClick = {
-                            doRRPC("home/ac", "+", DEVICENAME_8266)
+                            clientHolder.doRRPC("home/ac", "+", DEVICENAME_8266)
                         },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = acIsOpen
@@ -585,7 +571,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     Button(
                         onClick = {
-                            doRRPC("home/ac", "-", DEVICENAME_8266)
+                            clientHolder.doRRPC("home/ac", "-", DEVICENAME_8266)
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -597,7 +583,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 Button(
                     onClick = {
-                        doRRPC("home/ac", "model", DEVICENAME_8266)
+                        clientHolder.doRRPC("home/ac", "model", DEVICENAME_8266)
                     },
                     modifier = Modifier
                         .height(80.dp)
@@ -735,7 +721,7 @@ class MainActivity : AppCompatActivity() {
         ) {
             Button(
                 onClick = {
-                    doRRPC("home/dac", if (dacIsOpen) "off" else "on", DEVICENAME_8266)
+                    clientHolder.doRRPC("home/dac", if (dacIsOpen) "off" else "on", DEVICENAME_8266)
                 }, modifier = Modifier
                     .height(80.dp)
                     .width(80.dp)
@@ -756,7 +742,7 @@ class MainActivity : AppCompatActivity() {
             ) {
                 Button(
                     onClick = {
-                        doRRPC("home/dac", "+", DEVICENAME_8266)
+                        clientHolder.doRRPC("home/dac", "+", DEVICENAME_8266)
                     },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = dacIsOpen
@@ -765,7 +751,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 Button(
                     onClick = {
-                        doRRPC("home/dac", "-", DEVICENAME_8266)
+                        clientHolder.doRRPC("home/dac", "-", DEVICENAME_8266)
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -777,7 +763,7 @@ class MainActivity : AppCompatActivity() {
             }
             Button(
                 onClick = {
-                    doRRPC("home/dac", "input", DEVICENAME_8266)
+                    clientHolder.doRRPC("home/dac", "input", DEVICENAME_8266)
                 },
                 modifier = Modifier
                     .height(80.dp)
@@ -791,7 +777,7 @@ class MainActivity : AppCompatActivity() {
         Button(
             onClick = {
                 if (dacTime > System.currentTimeMillis()) {
-                    doRRPC("home/dac", "timerCancel", DEVICENAME_8266)
+                    clientHolder.doRRPC("home/dac", "timerCancel", DEVICENAME_8266)
                 } else {
                     navController.navigate("adjustValue?type=3")
                 }
@@ -861,166 +847,6 @@ class MainActivity : AppCompatActivity() {
 
     }
 
-    private fun doRequest(topic: String, content: String, devName: String) {
-        val pubRequest: PubRequest = PubRequest()
-            .setIotInstanceId(InstanceId)
-            .setProductKey(PRODUCTKEY)
-            .setQos(0)
-            .setTopicFullName("/${PRODUCTKEY}/$devName/user/$topic")
-            .setMessageContent(Base64.encodeToString(content.toByteArray(), Base64.DEFAULT))
-        // 复制代码运行请自行打印 API 的返回值
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val response = vm.client.pub(pubRequest)
-                Log.d(TAG, "code = ${response.body.code} message=${response.body.errorMessage}")
-                withContext(Dispatchers.Main) {
-                    if (response.body.success) {
-                        Toast.makeText(this@MainActivity, "success", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(this@MainActivity, response.body.errorMessage, Toast.LENGTH_SHORT).show()
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-    private fun doRRPC(topic: String, content: String, devName: String) {
-        doRRPC(topic, content.toByteArray(), devName)
-    }
-
-    private fun doRRPC(topic: String, content: ByteArray, devName: String) {
-        val request = RRpcRequest()
-        request.setProductKey(PRODUCTKEY)
-        request.setDeviceName(devName)
-        request.setRequestBase64Byte(Base64.encodeToString(content, Base64.DEFAULT))
-        request.setTimeout(8000)
-        request.setTopic("/$PRODUCTKEY/$devName/user/$topic")
-        request.setIotInstanceId(InstanceId)
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val response: RRpcResponse = vm.client.rRpc(request)
-                Log.d(TAG, "response = ${response.body.code} message=${response.body.errorMessage}")
-                withContext(Dispatchers.Main) {
-                    if (response.body.success) {
-                        val toString = Base64.decode(response.body.getPayloadBase64Byte(), Base64.DEFAULT).toString(Charsets.UTF_8)
-                        when (topic) {
-                            "home/dac" -> {
-                                when (toString) {
-                                    "off", "on" -> {
-                                        val b = toString == "on"
-                                        vm.dacOpen.value = b
-                                        MMKV.defaultMMKV().encode(DAC_POWER_STATUS_KEY, b)
-                                    }
-                                    "+" -> {
-                                        val i = min((vm.dacVol.value ?: 0) + 1, 30)
-                                        vm.dacVol.value = i
-                                        MMKV.defaultMMKV().encode(DAC_VOL_KEY, i)
-                                    }
-                                    "-" -> {
-                                        val i = max((vm.dacVol.value ?: 0) - 1, 0)
-                                        vm.dacVol.value = i
-                                        MMKV.defaultMMKV().encode(DAC_VOL_KEY, i)
-                                    }
-                                    "input" -> {
-                                        val dacInputSource =
-                                            if (vm.dacInputSource.value == DacInputSource.USB) DacInputSource.COAXIAL
-                                            else DacInputSource.USB
-                                        vm.dacInputSource.value = dacInputSource
-                                        MMKV.defaultMMKV().encode(DAC_SOURCE_KEY, dacInputSource.name)
-                                    }
-                                    "timerCancel" -> {
-                                        vm.dacPowerOffTime.value = 0
-                                        MMKV.defaultMMKV().encode(DAC_POWER_OFF_TIMER_KEY, 0L)
-                                        dacTimerJob?.cancel()
-                                    }
-                                    else -> {
-                                        if (toString.startsWith("timer:")) {
-                                            val m = toString.removePrefix("timer:").toInt()
-                                            val l = System.currentTimeMillis() + m * 60 * 1000L
-                                            vm.dacPowerOffTime.value = l
-                                            MMKV.defaultMMKV().encode(DAC_POWER_OFF_TIMER_KEY, l)
-                                            dacTimerJob = lifecycleScope.launch {
-                                                delay(l)
-                                                vm.dacPowerOffTime.value = 0
-                                                MMKV.defaultMMKV().encode(DAC_POWER_OFF_TIMER_KEY, 0L)
-                                                vm.dacOpen.value = false
-                                                MMKV.defaultMMKV().encode(DAC_POWER_STATUS_KEY, false)
-                                            }
-                                        } else {
-                                            ToastUtils.showShort(toString)
-                                        }
-                                    }
-                                }
-                            }
-                            "home/ac" -> {
-                                // Model: 1 (YAW1F), Power: On, Mode: 0 (Auto), Temp: 25C, Fan: 0 (Auto), Turbo: Off, IFeel: Off, WiFi: Off, XFan: Off, Light: On, Sleep: Off, Swing(V) Mode: Manual, Swing(V): 0 (Last), Timer: Off, Display Temp: 0 (Off)
-                                vm.acOpen.value = toString.contains("Power: On")
-                                when (toString) {
-                                    "off", "on" -> {
-                                        val b = toString == "on"
-                                        vm.acOpen.value = b
-                                        MMKV.defaultMMKV().encode(AC_POWER_STATUS_KEY, b)
-                                    }
-                                    "+" -> {
-                                        val i = min((vm.acTemp.value ?: 0) + 1, 30)
-                                        vm.acTemp.value = i
-                                        MMKV.defaultMMKV().encode(AC_TEMP_KEY, i)
-                                    }
-                                    "-" -> {
-                                        val i = max((vm.acTemp.value ?: 0) - 1, 0)
-                                        vm.acTemp.value = i
-                                        MMKV.defaultMMKV().encode(AC_TEMP_KEY, i)
-                                    }
-                                    "model" -> {
-                                        val dacInputSource = AcMode.values()[((vm.acMode.value?.ordinal ?: 0) + 1) % AcMode.values().size]
-                                        vm.acMode.value = dacInputSource
-                                        MMKV.defaultMMKV().encode(AC_MODE_KEY, dacInputSource.name)
-                                    }
-                                    else -> {
-                                        LogUtils.d(TAG, toString)
-                                        ToastUtils.showShort(toString)
-                                    }
-                                }
-                            }
-                            "iot/relay" -> {
-                                when (toString) {
-                                    "off", "on" -> {
-                                        val b = toString == "on"
-                                        vm.relayOpen.value = b
-                                        MMKV.defaultMMKV().encode("relay", b)
-                                    }
-                                    else -> {
-                                        LogUtils.d(TAG, toString)
-                                        ToastUtils.showShort(toString)
-                                    }
-                                }
-                            }
-                            "settings" -> {
-                                when (toString) {
-                                    "clearPrefs" -> {
-                                        ToastUtils.showShort("clear success")
-                                    }
-                                    else -> {
-                                        LogUtils.d(TAG, toString)
-                                        ToastUtils.showShort(toString)
-                                    }
-                                }
-                            }
-                            else -> {
-                                ToastUtils.showShort(toString)
-                            }
-                        }
-                    } else {
-                        ToastUtils.showLong(response.body.errorMessage)
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
 
 }
 
