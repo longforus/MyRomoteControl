@@ -7,8 +7,8 @@ public:
     int action;
     int board;
     int locker;
-    u_long time;
-     char * command;
+    double time;
+    char *command;
     String topic;
-    char * result;
+    char *result;
 };

@@ -385,7 +385,7 @@ void onConnectionEstablished()
                           cJSON *time = cJSON_GetObjectItem(pJsonRoot, "time");
                           if (cJSON_IsNumber(time))
                           {
-                            command.time = (u_long)time->valuedouble;
+                            command.time = time->valuedouble;
                           }
                           cJSON *action = cJSON_GetObjectItem(pJsonRoot, "action");
                           if (cJSON_IsNumber(action))
