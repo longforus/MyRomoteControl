@@ -4,46 +4,19 @@
 #include <Ticker.h>
 #include <time.h>
 #include <WiFiUdp.h>
-#include "WiFi.h"
 #include "EspMQTTclient.h"
 #include "Account.h"
+#include "Utils.h"
+
+#define i2cOLED
+#include "UI.h"
 #include <Preferences.h>
 #include <NTPClient.h>
-#include <RTClib.h>
 
 #define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
 #include "esp_log.h"
 
-#define i2cOLED
-#ifdef i2cOLED
-#include "SSD1306Wire.h"
-#endif
-#include "OLEDDisplayUi.h"
-
 #include "driver/uart.h"
-#ifdef i2cOLED
-// Pin definitions for I2C OLED
-const int I2C_DISPLAY_ADDRESS = 0x3C;
-const int SDA_PIN = 23;
-const int SCL_PIN = 22;
-#endif
-
-#ifdef i2cOLED
-SSD1306Wire display(I2C_DISPLAY_ADDRESS, SDA_PIN, SCL_PIN); // I2C OLED
-#endif
-
-OLEDDisplayUi ui(&display);
-
-//declaring prototypes
-void drawProfile(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y);
-void drawHardwareInfo(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y);
-// this array keeps function pointers to all frames
-// frames are the single views that slide from right to left
-FrameCallback frames[] = {drawProfile, drawHardwareInfo};
-int numberOfFrames = 2;
-
-char monName[12][4] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
-char wdayName[7][4] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
 
 Preferences prefs;
 Ticker ledTiker;
@@ -51,25 +24,21 @@ Ticker btnTiker;
 
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "ntp1.aliyun.com", 60 * 60 * 8, 30 * 60 * 1000);
-DateTime now;
-
 EspMQTTClient *client;
 
-unsigned long millisTimeUpdated = millis();
+DateTime now;
 
 static const uint8_t BLUE_LED_PIN = 15;
 static const uint8_t RELAY_PIN = 14;
 
-void drawSplash(OLEDDisplay *display, String label);
+
 void fadeLed(int count, int delayMill);
 void led_timer_toggle(int count);
 void switchRelay();
 String getRelayStatus();
 void connMQTT(String ssid, String pwd);
-int hex_char_value(char c);
-int hex_to_decimal(const char *szHex, int len);
 
-String recMsg = "connecting to wifi...";
+
 int ledDelay = 0;
 
 #define ECHO_TXD2 (GPIO_NUM_17)
@@ -419,90 +388,4 @@ void onConnectionEstablished()
   // Execute delayed instructions
   // client ->executeDelayed(5 * 1000, []()
   //                       { client ->publish("mytopic/wildcardtest/test123", "This is a message sent 5 seconds later"); });
-}
-
-void drawProfile(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
-{
-  //now = DateTime(millis());
-
-  char date_str[40];
-
-  display->setTextAlignment(TEXT_ALIGN_CENTER);
-  display->setFont(ArialMT_Plain_10);
-
-  display->drawString(64 + x, 0 + y, "long for us");
-  display->drawHorizontalLine(0 + x, 13 + y, 128);
-
-  display->setFont(ArialMT_Plain_24);
-  display->setTextAlignment(TEXT_ALIGN_LEFT);
-
-  sprintf(date_str, "%02d:%02d:%02d", now.hour(), now.minute(), now.second());
-  display->drawString(x + 16, 16 + y, date_str);
-
-  snprintf_P(date_str,
-             sizeof(date_str),
-             PSTR("%04u-%02u-%02u (%03s)"),
-             now.year(), now.month(), now.day(), wdayName[now.dayOfTheWeek()]);
-
-  display->setTextAlignment(TEXT_ALIGN_CENTER);
-  display->setFont(ArialMT_Plain_10);
-  display->drawString(64 + x, 41 + y, date_str);
-
-  String uptime = "Uptime ";
-
-  int days = 0;
-  long up_time = (millis() - millisTimeUpdated) / 1000;
-  if (up_time > 3600 * 24)
-  {
-    days = up_time / (3600 * 24);
-    up_time = up_time % (3600 * 24);
-    uptime = uptime + (String)(days) + "days ";
-  }
-  int hours = 0;
-  int mins = 0;
-  hours = up_time / 3600;
-  up_time = up_time % 3600;
-  uptime = uptime + ((hours < 10) ? "0" : "") + (String)(hours) + ":";
-  mins = up_time / 60;
-  uptime = uptime + ((mins < 10) ? "0" : "") + (String)(mins);
-
-  display->setTextAlignment(TEXT_ALIGN_CENTER);
-  display->drawString(64 + x, 52 + y, uptime);
-}
-
-void drawHardwareInfo(OLEDDisplay *display, OLEDDisplayUiState *state, int16_t x, int16_t y)
-{
-
-  display->setTextAlignment(TEXT_ALIGN_LEFT);
-  display->setFont(ArialMT_Plain_10);
-
-  String title = recMsg;
-  display->drawString(0 + x, 0 + y, title);
-
-  if (WiFi.status() == WL_CONNECTED)
-  {
-    String ipstr = "IP : ";
-    ipstr += WiFi.localIP().toString();
-    display->drawString(0 + x, 13 + y, ipstr);
-  }
-}
-
-int hex_char_value(char c)
-{
-  if (c >= '0' && c <= '9')
-    return c - '0';
-  else if (c >= 'a' && c <= 'f')
-    return (c - 'a' + 10);
-  else if (c >= 'A' && c <= 'F')
-    return (c - 'A' + 10);
-  return 0;
-}
-int hex_to_decimal(const char *szHex, int len)
-{
-  int result = 0;
-  for (int i = 0; i < len; i++)
-  {
-    result += (int)pow((float)16, (int)len - i - 1) * hex_char_value(szHex[i]);
-  }
-  return result;
 }
