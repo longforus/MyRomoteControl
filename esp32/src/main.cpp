@@ -7,6 +7,8 @@
 #include "EspMQTTclient.h"
 #include "Account.h"
 #include "Utils.h"
+#include "cJSON.h"
+#include "UartCommand.h"
 
 #define i2cOLED
 #include "UI.h"
@@ -27,17 +29,19 @@ NTPClient timeClient(ntpUDP, "ntp1.aliyun.com", 60 * 60 * 8, 30 * 60 * 1000);
 EspMQTTClient *client;
 
 DateTime now;
+// String needReplyUartCommand = "";
+// String needReplyTopic = "";
+// double needReplyTime = 0;
+UartCommand command;
 
 static const uint8_t BLUE_LED_PIN = 15;
 static const uint8_t RELAY_PIN = 14;
-
 
 void fadeLed(int count, int delayMill);
 void led_timer_toggle(int count);
 void switchRelay();
 String getRelayStatus();
 void connMQTT(String ssid, String pwd);
-
 
 int ledDelay = 0;
 
@@ -50,6 +54,7 @@ int ledDelay = 0;
 
 /* Configure parameters of an UART driver,
      * communication pins and install the driver */
+const uart_port_t uart_num = UART_NUM_2;
 uart_config_t uart_config = {
     .baud_rate = 9600,
     .data_bits = UART_DATA_8_BITS,
@@ -57,18 +62,20 @@ uart_config_t uart_config = {
     .stop_bits = UART_STOP_BITS_1,
     .flow_ctrl = UART_HW_FLOWCTRL_DISABLE};
 
+void uart_read();
+
 //三极管电流从P到N, 电流大的是E
 void setup(void)
 {
   Serial.setRxBufferSize(BUF_SIZE);
   Serial.begin(115200);
 
-  uart_param_config(UART_NUM_2, &uart_config);
-  uart_set_pin(UART_NUM_2, ECHO_TXD2, ECHO_RXD2, ECHO_TEST_RTS, ECHO_TEST_CTS);
-  uart_driver_install(UART_NUM_2, BUF_SIZE * 2, 0, 0, NULL, 0);
+  uart_param_config(uart_num, &uart_config);
+  uart_set_pin(uart_num, ECHO_TXD2, ECHO_RXD2, ECHO_TEST_RTS, ECHO_TEST_CTS);
+  uart_driver_install(uart_num, BUF_SIZE * 2, 0, 0, NULL, 0);
 
   esp_log_level_set("*", ESP_LOG_DEBUG); // set all components to ERROR level
- // initialize dispaly
+                                         // initialize dispaly
   display.init();
   display.clear();
   display.display();
@@ -88,7 +95,7 @@ void setup(void)
   prefs.begin("settings");
   String ssid = prefs.getString("ssid", "");
   String wifipwd = prefs.getString("wifipwd", "");
-  Serial.printf("read ssid = %s pwd = %s\n", ssid, wifipwd.c_str());
+  Serial.printf("read ssid = %s pwd = %s\n", ssid.c_str(), wifipwd.c_str());
   if (ssid.isEmpty() || wifipwd.isEmpty()) //未组网
   {
 
@@ -212,6 +219,7 @@ int initFlag = 0;
 void loop(void)
 {
   client->loop();
+  uart_read();
   //now = baseTime.operator + (TimeSpan((millis() - millisTimeUpdated) / 1000));
   if (WiFi.status() == WL_CONNECTED)
   {
@@ -246,6 +254,35 @@ void loop(void)
   }
 }
 
+void uart_read()
+{
+  // Read data from UART.
+  uint8_t data[128];
+  int length = 0;
+  ESP_ERROR_CHECK(uart_get_buffered_data_len(uart_num, (size_t *)&length));
+  length = uart_read_bytes(uart_num, data, length, 100);
+  if (length > 0)
+  {
+    String receivedMsg = int_array_to_hex_string(data, length);
+    Serial.printf("uart receive : %s    len=%d  \n", receivedMsg.c_str(), length);
+    if (!command.topic.isEmpty())
+    {
+      cJSON *pRoot = cJSON_CreateObject();                           // 创建JSON根部结构体
+      cJSON_AddStringToObject(pRoot, "command", command.command);    // 添加字符串类型数据到根部结构体
+      cJSON_AddStringToObject(pRoot, "result", receivedMsg.c_str()); // 添加字符串类型数据到根部结构体
+      cJSON_AddNumberToObject(pRoot, "time", command.time);          // 添加字符串类型数据到根部结构体
+      cJSON_AddNumberToObject(pRoot, "action", command.action);      // 添加字符串类型数据到根部结构体
+      cJSON_AddNumberToObject(pRoot, "board", command.board);        // 添加字符串类型数据到根部结构体
+      cJSON_AddNumberToObject(pRoot, "locker", command.locker);      // 添加字符串类型数据到根部结构体
+      char *sendData = cJSON_Print(pRoot);                           // 从cJSON对象中获取有格式的JSON对象
+      client->publish(command.topic, sendData);
+      command = UartCommand();
+      cJSON_free((void *)sendData); // 释放cJSON_Print ()分配出来的内存空间
+      cJSON_Delete(pRoot);          // 释放cJSON_CreateObject ()分配出来的内存空间
+    }
+  }
+}
+
 void switchRelay()
 {
   if (digitalRead(RELAY_PIN) == LOW)
@@ -269,7 +306,7 @@ String getRelayStatus()
   {
     result = "on";
   }
-  Serial.printf("load relay status %s as pin%d\n", result, RELAY_PIN);
+  Serial.printf("load relay status %s as pin%d\n", result.c_str(), RELAY_PIN);
   return result;
 }
 
@@ -332,21 +369,65 @@ void onConnectionEstablished()
                     {
                       Serial.println(topicStr + "  " + message.c_str());
                       recMsg = "iot/serial -> " + message;
-                      int len = message.length();
-                      char arr[len / 2];
-                      char str[2];
-                      for (size_t i = 0; i < len; i = i + 2)
+                      command.topic = topicStr;
+                      // receiveData是要剖析的数据
+                      //首先整体判断是否为一个json格式的数据
+                      cJSON *pJsonRoot = cJSON_Parse(message.c_str());
+                      //如果是否json格式数据
+                      if (pJsonRoot != NULL)
                       {
-                        str[0] = message.charAt(i);
-                        str[1] = message.charAt(i + 1);
-                        int dec = hex_to_decimal(str, 2);
-                        Serial.printf("str = %s ,dec = %d \n", str, dec);
-                        arr[i / 2] = (char)dec;
+                        char cmdStr[23] = {0};
+                        cJSON *com = cJSON_GetObjectItem(pJsonRoot, "command");
+                        if (!com)
+                          return; // 判断mac字段是否json格式
+                        else
+                        {
+                          cJSON *time = cJSON_GetObjectItem(pJsonRoot, "time");
+                          if (cJSON_IsNumber(time))
+                          {
+                            command.time = (u_long)time->valuedouble;
+                          }
+                          cJSON *action = cJSON_GetObjectItem(pJsonRoot, "action");
+                          if (cJSON_IsNumber(action))
+                          {
+                            command.action = action->valueint;
+                          }
+                          cJSON *board = cJSON_GetObjectItem(pJsonRoot, "board");
+                          if (cJSON_IsNumber(board))
+                          {
+                            command.board = board->valueint;
+                          }
+                          cJSON *locker = cJSON_GetObjectItem(pJsonRoot, "locker");
+                          if (cJSON_IsNumber(locker))
+                          {
+                            command.locker = locker->valueint;
+                          }
+                          if (cJSON_IsString(com)) // 判断mac字段是否string类型
+                          {
+                            strcpy(cmdStr, com->valuestring); // 拷贝内容到字符串数组
+                            int len = strlen(cmdStr);
+                            command.command = new char[len];
+                            strcpy(command.command, cmdStr); // 拷贝内容到字符串数组
+                            char arr[len / 2];
+                            char str[3];
+                            for (size_t i = 0; i < len; i = i + 2)
+                            {
+                              str[0] = cmdStr[i];
+                              str[1] = cmdStr[i + 1];
+                              str[2] = '\0';
+                              int dec = hex_to_decimal(str, 2);
+                              Serial.printf("str = %s ,dec = %d \n", str, dec);
+                              arr[i / 2] = (char)dec;
+                            }
+                            len /= 2;
+                            Serial.printf("arr len = %d \n", len);
+                            uart_write_bytes(uart_num, arr, len);
+                          }
+                        }
+                        cJSON_Delete(pJsonRoot); // 释放cJSON_Parse()分配出来的内存空间
                       }
-                      len /= 2;
-                      Serial.printf("arr len = %d \n", len);
-                      uart_write_bytes(UART_NUM_2, arr, len);
-                      client->publish(topicStr, message.c_str());
+
+                      // client->publish(topicStr, message.c_str());
                     });
   client->subscribe("/ext/rrpc/#/settings", [](const String &topicStr, const String &message)
                     {

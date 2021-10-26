@@ -46,10 +46,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
-import com.longforus.myremotecontrol.bean.AcMode
-import com.longforus.myremotecontrol.bean.DacInputSource
-import com.longforus.myremotecontrol.bean.IconScreens
-import com.longforus.myremotecontrol.bean.StateResult
+import com.longforus.myremotecontrol.bean.*
 import com.longforus.myremotecontrol.ui.theme.Purple500
 import com.longforus.myremotecontrol.ui.theme.Purple700
 import com.longforus.myremotecontrol.ui.theme.myremotecontrolTheme
@@ -306,7 +303,8 @@ class MainActivity : AppCompatActivity() {
                 Spacer(modifier = Modifier.width(15.dp))
                 Button(onClick = {
                     if (board.isNotEmpty() && locker.isNotEmpty()) {
-                        clientHolder.doRRPC("iot/serial", openLockCommand(board.toInt(), locker.toInt()), DEVICENAME_32)
+                        val command =  UartCommand(1,board.toInt(),locker.toInt())
+                        clientHolder.doRRPC("iot/serial", gson.toJson(command) , DEVICENAME_32)
                     } else {
                         ToastUtils.nonNull("board or locker")
                     }
@@ -327,7 +325,8 @@ class MainActivity : AppCompatActivity() {
                 Spacer(modifier = Modifier.width(15.dp))
                 Button(onClick = {
                     if (board.isNotEmpty() && locker.isNotEmpty()) {
-                        clientHolder.doRRPC("iot/serial", openLockCommand(board.toInt(), locker.toInt()), DEVICENAME_32)
+                        val command =  UartCommand(0,board.toInt(),locker.toInt())
+                        clientHolder.doRRPC("iot/serial", gson.toJson(command) , DEVICENAME_32)
                     } else {
                         ToastUtils.nonNull("board or locker")
                     }

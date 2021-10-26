@@ -6,13 +6,19 @@ import androidx.lifecycle.viewModelScope
 import com.aliyun.iot20180120.models.PubRequest
 import com.aliyun.iot20180120.models.RRpcRequest
 import com.aliyun.iot20180120.models.RRpcResponse
+import com.google.gson.Gson
 import com.longforus.myremotecontrol.bean.AcMode
 import com.longforus.myremotecontrol.bean.DacInputSource
+import com.longforus.myremotecontrol.bean.UartCommand
+import com.longforus.myremotecontrol.util.LockerUtil
 import com.longforus.myremotecontrol.util.LogUtils
 import com.tencent.mmkv.MMKV
 import kotlinx.coroutines.*
 import kotlin.math.max
 import kotlin.math.min
+
+
+val gson =  Gson()
 
 class ClientHolder(private val vm:MainViewModel) {
 
@@ -166,6 +172,13 @@ class ClientHolder(private val vm:MainViewModel) {
                                         LogUtils.d(TAG, toString)
                                         ToastUtils.showShort(toString)
                                     }
+                                }
+                            }
+                            "iot/serial" -> {
+                                LogUtils.d(TAG, toString)
+                                val command =  gson.fromJson(toString,UartCommand::class.java)
+                                LockerUtil.callbackResult(command.locker,command.result){
+                                    LogUtils.d(TAG, "open Result: $it")
                                 }
                             }
                             else -> {

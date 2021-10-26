@@ -13,8 +13,6 @@ import com.espressif.iot.esptouch.util.TouchNetUtil
 import com.longforus.myremotecontrol.bean.AcMode
 import com.longforus.myremotecontrol.bean.DacInputSource
 import com.longforus.myremotecontrol.bean.StateResult
-import com.longforus.myremotecontrol.util.LockUtil
-import com.longforus.myremotecontrol.util.LogUtils
 import com.tencent.mmkv.MMKV
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -115,25 +113,6 @@ class MainViewModel : ViewModel() {
     var acPowerOffTime = MutableLiveData(MMKV.defaultMMKV().decodeLong(AC_POWER_OFF_TIMER_KEY, 0))
 }
 
-fun openLockCommand(board: Int, lock: Int): String {
-    val lockOrder = ByteArray(7)
-    lockOrder[0] = (-86).toByte()
-    lockOrder[1] = 85.toByte()
-    lockOrder[2] = 3.toByte()
-    lockOrder[3] = board.toByte()
-    lockOrder[4] = 80.toByte()
-    lockOrder[5] = (lock.toByte() - 1).toByte()
-    lockOrder[6] = LockUtil.calcCrc8(lockOrder, 0, 6)
-    val byteToStr = LockUtil.byteToStr(
-        lockOrder.size,
-        lockOrder
-    )
-    LogUtils.d(
-        TAG,
-        "open locker : $board -> $lock  \n send data  =  $byteToStr"
-    )
-    return byteToStr
-}
 
 
 

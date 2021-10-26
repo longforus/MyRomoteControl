@@ -29,7 +29,7 @@ void drawSplash(OLEDDisplay *display, String label);
 static FrameCallback frames[] = {drawProfile, drawHardwareInfo};
 static const int numberOfFrames = 2;
 
-static char monName[12][4] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+// static char monName[12][4] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
 static char wdayName[7][4] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
 
 
