@@ -1,4 +1,7 @@
-# using esp8266 and aliyun implementation simple remote control for DAC
+# using esp8266 and Aliyun implementation simple remote control for DAC
+
+## Device
+
 ```ini
 platform = espressif8266
 board = nodemcuv2
@@ -11,7 +14,7 @@ framework = arduino
 
 contains below practice:
 
-## Libraries
+## Libraries or Features
 
  - ESP8266 and ESP32 OLED driver for SSD1306 displays
  - EspMQTTClient
@@ -19,6 +22,8 @@ contains below practice:
  - IRremote
  - Preferences
  - SmartConfig
+ - Uart
+ - Json
 
 ## Other technique
 
