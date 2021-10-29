@@ -3,7 +3,6 @@ package com.longforus.myremotecontrol.util;
 import android.net.DhcpInfo;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
-
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.DatagramSocket;
@@ -15,7 +14,7 @@ import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.Enumeration;
 
-public class TouchNetUtil {
+public class MyTouchNetUtil {
     public static boolean isWifiConnected(WifiManager wifiManager) {
         WifiInfo wifiInfo = wifiManager.getConnectionInfo();
         return wifiInfo != null

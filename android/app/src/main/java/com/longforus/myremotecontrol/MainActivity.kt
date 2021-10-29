@@ -10,13 +10,8 @@ import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.*
@@ -27,37 +22,30 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.core.location.LocationManagerCompat
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
-import com.longforus.myremotecontrol.bean.*
+import com.longforus.myremotecontrol.bean.AcMode
+import com.longforus.myremotecontrol.bean.DacInputSource
+import com.longforus.myremotecontrol.bean.IconScreens
+import com.longforus.myremotecontrol.bean.StateResult
+import com.longforus.myremotecontrol.screen.HomeScreen
+import com.longforus.myremotecontrol.screen.OtherScreen
 import com.longforus.myremotecontrol.ui.theme.Purple500
-import com.longforus.myremotecontrol.ui.theme.Purple700
 import com.longforus.myremotecontrol.ui.theme.myremotecontrolTheme
+import com.longforus.myremotecontrol.util.MyTouchNetUtil
 import com.longforus.myremotecontrol.util.StatusBarUtil
-import com.longforus.myremotecontrol.util.TouchNetUtil
 import com.permissionx.guolindev.PermissionX
 import com.permissionx.guolindev.callback.RequestCallback
 import com.tencent.mmkv.MMKV
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.*
-import java.text.SimpleDateFormat
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 
 val LocalNavCtrl = staticCompositionLocalOf<NavHostController?> {
@@ -84,8 +72,6 @@ class MainActivity : AppCompatActivity() {
 
 
     private val vm by viewModels<MainViewModel>()
-
-    private val timeFormat = SimpleDateFormat("HH:mm:ss")
 
 
     val TAG = "MainActivity"
@@ -132,7 +118,7 @@ class MainActivity : AppCompatActivity() {
                             })
                         })
                     }) {
-                        HomeScreen(navController)
+                        HomeScreen(navController, vm, clientHolder)
                     }
                 }
                 composable(IconScreens.Other.route) {
@@ -153,7 +139,8 @@ class MainActivity : AppCompatActivity() {
                             })
                         })
                     }) {
-                        OtherScreen()
+                        val isOpen by vm.relayOpen.observeAsState(MMKV.defaultMMKV().decodeBool("relay", false))
+                        OtherScreen(clientHolder, isOpen)
                     }
                 }
 
@@ -270,114 +257,6 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    @Composable
-    fun OtherScreen() {
-        Column(Modifier.padding(start = 10.dp, end = 10.dp)) {
-            Text(text = "relay")
-            Spacer(modifier = Modifier.height(20.dp))
-            val isOpen by vm.relayOpen.observeAsState(MMKV.defaultMMKV().decodeBool("relay", false))
-            RelayRow(isOpen) {
-                this@MainActivity. clientHolder.doRRPC("iot/relay", if (isOpen) "off" else "on", DEVICENAME_32)
-            }
-            Spacer(modifier = Modifier.height(20.dp))
-            Text(text = "serial")
-            Spacer(modifier = Modifier.height(20.dp))
-            var board by remember {
-                mutableStateOf("0")
-            }
-            var locker by remember {
-                mutableStateOf("1")
-            }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.height
-                (60.dp)) {
-                OutlinedTextField(
-                    value = board,
-                    onValueChange = {
-                        board = it
-                    },
-                    singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                    label = {
-                        Text(text = "board")
-                    }, modifier = Modifier.fillMaxHeight()
-                )
-                Spacer(modifier = Modifier.width(15.dp))
-                Button(onClick = {
-                    if (board.isNotEmpty() && locker.isNotEmpty()) {
-                        val command =  UartCommand(1,board.toInt(),locker.toInt())
-                        clientHolder.doRRPC("iot/serial", gson.toJson(command) , DEVICENAME_32)
-                    } else {
-                        ToastUtils.nonNull("board or locker")
-                    }
-                }, modifier = Modifier.fillMaxHeight().width(80.dp)) {
-                    Text(text = "status")
-                }
-            }
-            Spacer(modifier = Modifier.height(20.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceAround, modifier = Modifier.height(60.dp)
-            ) {
-
-                OutlinedTextField(value = locker, onValueChange = {
-                    locker = it
-                }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), label = {
-                    Text(text = "locker")
-                }, modifier = Modifier.fillMaxHeight())
-                Spacer(modifier = Modifier.width(15.dp))
-                Button(onClick = {
-                    if (board.isNotEmpty() && locker.isNotEmpty()) {
-                        val command =  UartCommand(0,board.toInt(),locker.toInt())
-                        clientHolder.doRRPC("iot/serial", gson.toJson(command) , DEVICENAME_32)
-                    } else {
-                        ToastUtils.nonNull("board or locker")
-                    }
-                }, modifier = Modifier.fillMaxHeight().width(80.dp)) {
-                    Text(text = "open")
-                }
-
-            }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceAround,
-                modifier = Modifier.fillMaxWidth().padding(top = 20.dp)
-            ) {
-                Button(onClick = {
-                    clientHolder.doRRPC("iot/power", "off", DEVICENAME_32)
-                }) {
-                    Text(text = "off")
-                }
-                Button(onClick = {
-                    clientHolder.doRRPC("iot/power", "sub", DEVICENAME_32)
-                }) {
-                    Text(text = "-")
-                }
-                Button(onClick = {
-                    clientHolder.doRRPC("iot/power", "add", DEVICENAME_32)
-                }) {
-                    Text(text = "+")
-                }
-            }
-        }
-    }
-
-    @Composable
-    private fun RelayRow(isOpen: Boolean, onClick: () -> Unit) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceAround,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Button(
-                onClick = onClick, shape = CircleShape, modifier = Modifier
-                    .height(100.dp)
-                    .width(100.dp),
-                colors = ButtonDefaults.buttonColors(backgroundColor = if (isOpen) Color.Green else Color.LightGray)
-            ) {
-                Text(text = if (isOpen) "off" else "on", color = Color.White)
-            }
-        }
-    }
-
-
     private suspend fun check(): StateResult {
         var result: StateResult = checkPermission()
         if (!result.permissionGranted) {
@@ -416,29 +295,29 @@ class MainActivity : AppCompatActivity() {
         result.wifiConnected = false
         val mWifiManager = application.getSystemService(android.content.Context.WIFI_SERVICE) as WifiManager
         val wifiInfo: WifiInfo = mWifiManager.getConnectionInfo()
-        val connected = TouchNetUtil.isWifiConnected(mWifiManager)
+        val connected = MyTouchNetUtil.isWifiConnected(mWifiManager)
         if (!connected) {
             result.message = "请先连上 Wi-Fi"
             return result
         }
-        val ssid = TouchNetUtil.getSsidString(wifiInfo)
+        val ssid = MyTouchNetUtil.getSsidString(wifiInfo)
         val ipValue = wifiInfo.ipAddress
         if (ipValue != 0) {
-            result.address = TouchNetUtil.getAddress(wifiInfo.ipAddress)
+            result.address = MyTouchNetUtil.getAddress(wifiInfo.ipAddress)
         } else {
-            result.address = TouchNetUtil.getIPv4Address()
+            result.address = MyTouchNetUtil.getIPv4Address()
             if (result.address == null) {
-                result.address = TouchNetUtil.getIPv6Address()
+                result.address = MyTouchNetUtil.getIPv6Address()
             }
         }
         result.wifiConnected = true
         result.message = ""
-        result.is5G = com.longforus.myremotecontrol.util.TouchNetUtil.is5G(wifiInfo.frequency)
+        result.is5G = MyTouchNetUtil.is5G(wifiInfo.frequency)
         if (result.is5G) {
             result.message = "当前连接的是 5G Wi-Fi, 设备仅支持 2.4G Wi-Fi"
         }
         result.ssid = ssid
-        result.ssidBytes = com.longforus.myremotecontrol.util.TouchNetUtil.getRawSsidBytesOrElse(wifiInfo, ssid.toByteArray())
+        result.ssidBytes = MyTouchNetUtil.getRawSsidBytesOrElse(wifiInfo, ssid.toByteArray())
         result.bssid = wifiInfo.bssid
         return result
     }
@@ -452,349 +331,6 @@ class MainActivity : AppCompatActivity() {
                 it.resumeWith(Result.success(result))
             }
         )
-    }
-
-    @Composable
-    @Preview
-    fun HomeScreen(navController: NavHostController = rememberNavController()) {
-        Column(Modifier.padding(10.dp)) {
-            DacSpace(navController)
-            Spacer(modifier = Modifier.height(20.dp))
-            Text(text = "AC")
-            Spacer(modifier = Modifier.height(20.dp))
-            val acIsOpen by vm.acOpen.observeAsState(MMKV.defaultMMKV().decodeBool(AC_POWER_STATUS_KEY, false))
-            val acTemp by vm.acTemp.observeAsState(MMKV.defaultMMKV().decodeInt(AC_TEMP_KEY, 0))
-            val acTime by vm.acPowerOffTime.observeAsState(MMKV.defaultMMKV().decodeLong(AC_POWER_OFF_TIMER_KEY, 0))
-            val acMode by vm.acMode.observeAsState(
-                AcMode.valueOf(
-                    MMKV.defaultMMKV().decodeString(AC_MODE_KEY, AcMode.COOL.name) ?: AcMode.COOL.name
-                )
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            ConstraintLayout(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xffefefef))
-            ) {
-                val (tvVol, tvSource) = createRefs()
-                if (acIsOpen) {
-                    Text(buildAnnotatedString {
-                        withStyle(style = SpanStyle(fontSize = 123.sp, fontWeight = FontWeight.Bold)) {
-                            append(acTemp.toString())
-                        }
-                        append("°C")
-                    },
-                        modifier = Modifier
-                            .constrainAs(tvVol) {
-                                top.linkTo(parent.top)
-                                bottom.linkTo(parent.bottom)
-                                start.linkTo(parent.start)
-                                end.linkTo(tvSource.start)
-                            }
-                            .pointerInput(Unit) {
-                                detectTapGestures(onLongPress = {
-                                    switchACPower()
-                                })
-                            }
-                    )
-                    Text(acMode.name, fontSize = 30.sp, fontWeight = FontWeight.W400, modifier = Modifier
-                        .constrainAs(tvSource) {
-                            start.linkTo(tvVol.end)
-                            end.linkTo(parent.end)
-                            baseline.linkTo(tvVol.baseline)
-                        }
-                        .pointerInput(Unit) {
-                            detectTapGestures(onLongPress = {
-                                navController.navigate("adjustValue?type=5")
-                            })
-                        })
-                } else {
-                    Text(buildAnnotatedString {
-                        withStyle(style = SpanStyle(fontSize = 123.sp, fontWeight = FontWeight.Bold, color = Color.Gray)) {
-                            append("off")
-                        }
-                    },
-                        modifier = Modifier
-                            .constrainAs(tvVol) {
-                                top.linkTo(parent.top)
-                                bottom.linkTo(parent.bottom)
-                                start.linkTo(parent.start, margin = 30.dp)
-                                end.linkTo(tvSource.start)
-                            }
-                            .pointerInput(Unit) {
-                                detectTapGestures(onLongPress = {
-                                    switchDacPower()
-                                })
-                            }
-                    )
-                }
-
-            }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceAround,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 15.dp)
-            ) {
-                Button(
-                    onClick = {
-                        clientHolder.doRRPC("home/ac", if (acIsOpen) "off" else "on", DEVICENAME_8266)
-                    }, modifier = Modifier
-                        .height(80.dp)
-                        .width(80.dp)
-                        .pointerInput(Unit) {
-                            detectTapGestures(onLongPress = {
-                                switchACPower()
-                            })
-                        },
-                    colors = ButtonDefaults.buttonColors(backgroundColor = if (acIsOpen) Purple500 else Color.LightGray)
-                ) {
-                    Text(text = if (acIsOpen) "off" else "on")
-                }
-                Column(
-                    Modifier
-                        .width(100.dp)
-                        .height(100.dp),
-                    verticalArrangement = Arrangement.SpaceAround
-                ) {
-                    Button(
-                        onClick = {
-                            clientHolder.doRRPC("home/ac", "+", DEVICENAME_8266)
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = acIsOpen
-                    ) {
-                        Text(text = "+")
-                    }
-                    Button(
-                        onClick = {
-                            clientHolder.doRRPC("home/ac", "-", DEVICENAME_8266)
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 2.dp),
-                        enabled = acIsOpen
-                    ) {
-                        Text(text = "-")
-                    }
-                }
-                Button(
-                    onClick = {
-                        clientHolder.doRRPC("home/ac", "model", DEVICENAME_8266)
-                    },
-                    modifier = Modifier
-                        .height(80.dp)
-                        .width(80.dp),
-                    enabled = acIsOpen,
-                ) {
-                    Text(text = "Input")
-                }
-
-            }
-//            Button(
-//                onClick = {
-//                    if (dacTime > System.currentTimeMillis()) {
-//                        doRRPC("home/dac", "timerCancel", DEVICENAME_8266)
-//                    } else {
-//                        navController.navigate("adjustValue?type=3")
-//                    }
-//                }, modifier = Modifier
-//                    .fillMaxWidth()
-//                    .height(50.dp)
-//                    .padding(start = 20.dp, end = 20.dp),
-//                enabled = acIsOpen,
-//                colors = ButtonDefaults.buttonColors(backgroundColor = if (dacTime > System.currentTimeMillis()) Purple500 else Purple700)
-//            ) {
-//                Text(text = if (dacTime > System.currentTimeMillis()) timeFormat.format(dacTime) else "Timer")
-//            }
-        }
-    }
-
-    private fun switchACPower() {
-        val b = !(vm.acOpen.value ?: false)
-        vm.acOpen.value = b
-        MMKV.defaultMMKV().encode(AC_POWER_STATUS_KEY, b)
-    }
-
-    @Composable
-    private fun DacSpace(navController: NavHostController) {
-        Text(text = "Dac")
-        val dacIsOpen by vm.dacOpen.observeAsState(MMKV.defaultMMKV().decodeBool(DAC_POWER_STATUS_KEY, false))
-        val volume by vm.dacVol.observeAsState(MMKV.defaultMMKV().decodeInt(DAC_VOL_KEY, 0))
-        val dacTime by vm.dacPowerOffTime.observeAsState(MMKV.defaultMMKV().decodeLong(DAC_POWER_OFF_TIMER_KEY, 0))
-        //COAXIAL
-        val dacInputSource by vm.dacInputSource.observeAsState(
-            DacInputSource.valueOf(
-                MMKV.defaultMMKV().decodeString(DAC_SOURCE_KEY, DacInputSource.USB.name) ?: DacInputSource.USB.name
-            )
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-        ConstraintLayout(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .background(Color(0xffefefef))
-        ) {
-            val (tvVol, tvSource, icon) = createRefs()
-            if (dacIsOpen) {
-                Text(buildAnnotatedString {
-                    withStyle(style = SpanStyle(fontSize = 123.sp, fontWeight = FontWeight.Bold)) {
-                        append(volume.toString())
-                    }
-                    append("vol")
-                },
-                    modifier = Modifier
-                        .constrainAs(tvVol) {
-                            top.linkTo(parent.top)
-                            bottom.linkTo(parent.bottom)
-                            start.linkTo(parent.start)
-                            end.linkTo(tvSource.start)
-                        }
-                        .pointerInput(Unit) {
-                            detectTapGestures(onLongPress = {
-                                navController.navigate("adjustValue?type=0")
-                            })
-                        }
-                )
-                fun onChangeInputSource() {
-                    vm.dacInputSource.value =
-                        if (vm.dacInputSource.value == DacInputSource.USB) DacInputSource.COAXIAL else DacInputSource.USB
-                    MMKV
-                        .defaultMMKV()
-                        .encode(DAC_SOURCE_KEY, vm.dacInputSource.value?.name)
-                }
-                Text(dacInputSource.name, fontSize = 30.sp, fontWeight = FontWeight.W400, modifier = Modifier
-                    .constrainAs(tvSource) {
-                        start.linkTo(tvVol.end)
-                        end.linkTo(parent.end)
-                        baseline.linkTo(tvVol.baseline)
-                    }
-                    .pointerInput(Unit) {
-                        detectTapGestures(onLongPress = {
-                            onChangeInputSource()
-                        })
-                    })
-                Image(painterResource(if (dacInputSource == DacInputSource.USB) R.drawable.usb else R.drawable.coaxial),
-                    contentDescription = null,
-                    Modifier
-                        .constrainAs(icon) {
-                            bottom.linkTo(tvSource.top, 8.dp)
-                            start.linkTo(tvSource.start)
-                            end.linkTo(tvSource.end)
-                        }
-                        .pointerInput(Unit) {
-                            detectTapGestures(onLongPress = {
-                                onChangeInputSource()
-                            })
-                        })
-            } else {
-                Text(buildAnnotatedString {
-                    withStyle(style = SpanStyle(fontSize = 123.sp, fontWeight = FontWeight.Bold, color = Color.Gray)) {
-                        append("off")
-                    }
-                },
-                    modifier = Modifier
-                        .constrainAs(tvVol) {
-                            top.linkTo(parent.top)
-                            bottom.linkTo(parent.bottom)
-                            start.linkTo(parent.start, margin = 30.dp)
-                            end.linkTo(tvSource.start)
-                        }
-                        .pointerInput(Unit) {
-                            detectTapGestures(onLongPress = {
-                                switchDacPower()
-                            })
-                        }
-                )
-            }
-
-        }
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceAround,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 15.dp)
-        ) {
-            Button(
-                onClick = {
-                    clientHolder.doRRPC("home/dac", if (dacIsOpen) "off" else "on", DEVICENAME_8266)
-                }, modifier = Modifier
-                    .height(80.dp)
-                    .width(80.dp)
-                    .pointerInput(Unit) {
-                        detectTapGestures(onLongPress = {
-                            switchDacPower()
-                        })
-                    },
-                colors = ButtonDefaults.buttonColors(backgroundColor = if (dacIsOpen) Purple500 else Color.LightGray)
-            ) {
-                Text(text = if (dacIsOpen) "off" else "on")
-            }
-            Column(
-                Modifier
-                    .width(100.dp)
-                    .height(100.dp),
-                verticalArrangement = Arrangement.SpaceAround
-            ) {
-                Button(
-                    onClick = {
-                        clientHolder.doRRPC("home/dac", "+", DEVICENAME_8266)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = dacIsOpen
-                ) {
-                    Text(text = "+")
-                }
-                Button(
-                    onClick = {
-                        clientHolder.doRRPC("home/dac", "-", DEVICENAME_8266)
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 2.dp),
-                    enabled = dacIsOpen
-                ) {
-                    Text(text = "-")
-                }
-            }
-            Button(
-                onClick = {
-                    clientHolder.doRRPC("home/dac", "input", DEVICENAME_8266)
-                },
-                modifier = Modifier
-                    .height(80.dp)
-                    .width(80.dp),
-                enabled = dacIsOpen,
-            ) {
-                Text(text = "Input")
-            }
-
-        }
-        Button(
-            onClick = {
-                if (dacTime > System.currentTimeMillis()) {
-                    clientHolder.doRRPC("home/dac", "timerCancel", DEVICENAME_8266)
-                } else {
-                    navController.navigate("adjustValue?type=3")
-                }
-            }, modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
-                .padding(start = 20.dp, end = 20.dp),
-            enabled = dacIsOpen,
-            colors = ButtonDefaults.buttonColors(backgroundColor = if (dacTime > System.currentTimeMillis()) Purple500 else Purple700)
-        ) {
-            Text(text = if (dacTime > System.currentTimeMillis()) timeFormat.format(dacTime) else "Timer")
-        }
-    }
-
-    private fun switchDacPower() {
-        val b = !(vm.dacOpen.value ?: false)
-        vm.dacOpen.value = b
-        MMKV.defaultMMKV().encode(DAC_POWER_STATUS_KEY, b)
     }
 
 
@@ -848,4 +384,3 @@ class MainActivity : AppCompatActivity() {
 
 
 }
-
