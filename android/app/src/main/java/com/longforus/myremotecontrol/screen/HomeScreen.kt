@@ -1,5 +1,6 @@
 package com.longforus.myremotecontrol.screen
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -31,6 +32,7 @@ import com.longforus.myremotecontrol.*
 import com.longforus.myremotecontrol.R
 import com.longforus.myremotecontrol.bean.AcMode
 import com.longforus.myremotecontrol.bean.DacInputSource
+import com.longforus.myremotecontrol.ui.LongClickButton
 import com.longforus.myremotecontrol.ui.theme.Purple500
 import com.longforus.myremotecontrol.ui.theme.Purple700
 import com.tencent.mmkv.MMKV
@@ -38,13 +40,16 @@ import java.text.SimpleDateFormat
 
 private val timeFormat = SimpleDateFormat("HH:mm:ss")
 
+val TAG = "HomeScreen"
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 @Preview(showSystemUi = true)
 fun HomeScreen(navController: NavHostController = rememberNavController(), viewModel: MainViewModel = androidx.lifecycle.viewmodel.compose
     .viewModel(), clientHolder: ClientHolder = ClientHolder(viewModel)
 ) {
     Column(Modifier.padding(10.dp)) {
-        DacSpace(navController)
+        DacSpace(navController,viewModel,clientHolder)
         Spacer(modifier = Modifier.height(20.dp))
         Text(text = "AC")
         Spacer(modifier = Modifier.height(20.dp))
@@ -200,6 +205,7 @@ fun HomeScreen(navController: NavHostController = rememberNavController(), viewM
     }
 }
 
+@ExperimentalFoundationApi
 @Composable
 private fun DacSpace(navController: NavHostController, viewModel: MainViewModel = androidx.lifecycle.viewmodel.compose.viewModel(), clientHolder: ClientHolder = ClientHolder(viewModel)) {
     Text(text = "Dac")
@@ -303,18 +309,17 @@ private fun DacSpace(navController: NavHostController, viewModel: MainViewModel 
             .fillMaxWidth()
             .padding(top = 15.dp)
     ) {
-        Button(
+        LongClickButton(
+             modifier = Modifier
+                 .height(80.dp)
+                 .width(80.dp),
+            colors = ButtonDefaults.buttonColors(backgroundColor = if (dacIsOpen) Purple500 else Color.LightGray),
             onClick = {
                 clientHolder.doRRPC("home/dac", if (dacIsOpen) "off" else "on", DEVICENAME_8266)
-            }, modifier = Modifier
-                .height(80.dp)
-                .width(80.dp)
-                .pointerInput(Unit) {
-                    detectTapGestures(onLongPress = {
-                        switchDacPower(viewModel)
-                    })
-                },
-            colors = ButtonDefaults.buttonColors(backgroundColor = if (dacIsOpen) Purple500 else Color.LightGray)
+            },
+            onLongClick = {
+                switchDacPower(viewModel)
+            }
         ) {
             Text(text = if (dacIsOpen) "off" else "on")
         }
