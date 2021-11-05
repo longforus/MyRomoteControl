@@ -5,7 +5,7 @@
 #include <time.h>
 #include <WiFiUdp.h>
 #include "EspMQTTclient.h"
-#include "Account.h"
+#include "AccountBemfa.h"
 #include "Utils.h"
 #include "cJSON.h"
 #include "UartCommand.h"
@@ -40,6 +40,7 @@ static const uint8_t RELAY_PIN = 14;
 void fadeLed(int count, int delayMill);
 void led_timer_toggle(int count);
 void switchRelay();
+void onRelayReceive(const String &topicStr, const String &message);
 String getRelayStatus();
 void connMQTT(String ssid, String pwd);
 
@@ -200,7 +201,7 @@ void connMQTT(String ssid, String pwd)
       MQTT_USER_NAME,      // Can be omitted if not needed
       MQTT_USER_PWD,       // Can be omitted if not needed
       MQTT_CLIENT_NAME,    // Client name that uniquely identify your device
-      1883                 // The MQTT port, default to 1883. this line can be omitted
+      MQTT_PORT                 // The MQTT port, default to 1883. this line can be omitted
   );
 
   client = &cc;
@@ -344,25 +345,13 @@ void onConnectionEstablished()
 
   client->subscribe("/ext/rrpc/#/iot/relay", [](const String &topicStr, const String &message)
                     {
-                      Serial.println(topicStr + "  " + message);
-                      recMsg = "iot/relay -> " + message;
-                      fadeLed(3, 88);
-                      if (message.equals("on"))
-                      {
-                        digitalWrite(RELAY_PIN, HIGH);
-                        Serial.printf("set pin %d to %s\n", RELAY_PIN, "high");
-                      }
-                      else if (message.equals("off"))
-                      {
-                        digitalWrite(RELAY_PIN, LOW);
-                        Serial.printf("set pin %d to %s\n", RELAY_PIN, "low");
-                      }
-                      else
-                      {
-                        switchRelay();
-                      }
+                      onRelayReceive(topicStr,message);
                       client->publish(
                           topicStr, getRelayStatus());
+                    }); 
+                 client->subscribe("led002", [](const String &topicStr, const String &message)
+                    {
+                     onRelayReceive(topicStr,message);
                     });
 
   client->subscribe("/ext/rrpc/#/iot/serial", [](const String &topicStr, const String &message)
@@ -453,6 +442,7 @@ void onConnectionEstablished()
                       }
                     });
 
+
   // client ->subscribe("volumio", [](const String &topicStr, const String &message)
   //                  {
   //                    Serial.println(payload);
@@ -469,4 +459,25 @@ void onConnectionEstablished()
   // Execute delayed instructions
   // client ->executeDelayed(5 * 1000, []()
   //                       { client ->publish("mytopic/wildcardtest/test123", "This is a message sent 5 seconds later"); });
+}
+
+
+void onRelayReceive(const String &topicStr, const String &message){
+        Serial.println(topicStr + "  " + message);
+       recMsg = "iot/relay -> " + message;
+       fadeLed(3, 88);
+       if (message.equals("on"))
+       {
+         digitalWrite(RELAY_PIN, HIGH);
+         Serial.printf("set pin %d to %s\n", RELAY_PIN, "high");
+       }
+       else if (message.equals("off"))
+       {
+         digitalWrite(RELAY_PIN, LOW);
+         Serial.printf("set pin %d to %s\n", RELAY_PIN, "low");
+       }
+       else
+       {
+         switchRelay();
+       }
 }
