@@ -5,7 +5,7 @@
 #include <time.h>
 #include <WiFiUdp.h>
 #include "EspMQTTclient.h"
-#include "AccountBemfa.h"
+#include "Account.h"
 #include "Utils.h"
 #include "cJSON.h"
 #include "UartCommand.h"
@@ -27,6 +27,7 @@ Ticker btnTiker;
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "ntp1.aliyun.com", 60 * 60 * 8, 30 * 60 * 1000);
 EspMQTTClient *client;
+EspMQTTClient *bemfaClient;
 
 DateTime now;
 // String needReplyUartCommand = "";
@@ -201,7 +202,7 @@ void connMQTT(String ssid, String pwd)
       MQTT_USER_NAME,      // Can be omitted if not needed
       MQTT_USER_PWD,       // Can be omitted if not needed
       MQTT_CLIENT_NAME,    // Client name that uniquely identify your device
-      MQTT_PORT                 // The MQTT port, default to 1883. this line can be omitted
+      MQTT_PORT            // The MQTT port, default to 1883. this line can be omitted
   );
 
   client = &cc;
@@ -213,6 +214,27 @@ void connMQTT(String ssid, String pwd)
   client->enableLastWillMessage("TestClient/lastwill", "I am going offline"); // You can activate the retain flag by setting the third parameter to true
   // client->loop();
   Serial.printf("client inited %p\n", client);
+
+  //注意这里的static关键字,用static声明的局部变量在这个方法运行完后还能保存不被释放,不加的话这里运行完就释放掉了,后面调用client就会出错
+  static EspMQTTClient cc1(
+      NULL,
+      NULL,
+      BF_MQTT_SERVER_ADDRESS, // MQTT Broker server ip
+      "",
+      "",
+      BF_MQTT_CLIENT_NAME, // Client name that uniquely identify your device
+      BF_MQTT_PORT         // The MQTT port, default to 1883. this line can be omitted
+  );
+
+  bemfaClient = &cc1;
+  // Optionnal functionnalities of EspMQTTClient :
+  bemfaClient->enableDebuggingMessages(); // Enable debugging messages sent to serial output
+  bemfaClient->setMaxPacketSize(1024);
+  bemfaClient->setKeepAlive(60);
+  //client ->enableHTTPWebUpdater();                                             // Enable the web updater. User and password default to values of MQTTUsername and MQTTPassword. These can be overrited with enableHTTPWebUpdater("user", "password").
+  bemfaClient->enableLastWillMessage("TestClient/lastwill", "I am going offline"); // You can activate the retain flag by setting the third parameter to true
+  // client->loop();
+  Serial.printf("bemfaClient inited %p\n", bemfaClient);
 }
 
 int initFlag = 0;
@@ -220,6 +242,7 @@ int initFlag = 0;
 void loop(void)
 {
   client->loop();
+  bemfaClient->loop();
   uart_read();
   //now = baseTime.operator + (TimeSpan((millis() - millisTimeUpdated) / 1000));
   if (WiFi.status() == WL_CONNECTED)
@@ -345,14 +368,12 @@ void onConnectionEstablished()
 
   client->subscribe("/ext/rrpc/#/iot/relay", [](const String &topicStr, const String &message)
                     {
-                      onRelayReceive(topicStr,message);
+                      onRelayReceive(topicStr, message);
                       client->publish(
                           topicStr, getRelayStatus());
-                    }); 
-                 client->subscribe("led002", [](const String &topicStr, const String &message)
-                    {
-                     onRelayReceive(topicStr,message);
                     });
+  bemfaClient->subscribe("led002", [](const String &topicStr, const String &message)
+                         { onRelayReceive(topicStr, message); });
 
   client->subscribe("/ext/rrpc/#/iot/serial", [](const String &topicStr, const String &message)
                     {
@@ -442,7 +463,6 @@ void onConnectionEstablished()
                       }
                     });
 
-
   // client ->subscribe("volumio", [](const String &topicStr, const String &message)
   //                  {
   //                    Serial.println(payload);
@@ -461,23 +481,23 @@ void onConnectionEstablished()
   //                       { client ->publish("mytopic/wildcardtest/test123", "This is a message sent 5 seconds later"); });
 }
 
-
-void onRelayReceive(const String &topicStr, const String &message){
-        Serial.println(topicStr + "  " + message);
-       recMsg = "iot/relay -> " + message;
-       fadeLed(3, 88);
-       if (message.equals("on"))
-       {
-         digitalWrite(RELAY_PIN, HIGH);
-         Serial.printf("set pin %d to %s\n", RELAY_PIN, "high");
-       }
-       else if (message.equals("off"))
-       {
-         digitalWrite(RELAY_PIN, LOW);
-         Serial.printf("set pin %d to %s\n", RELAY_PIN, "low");
-       }
-       else
-       {
-         switchRelay();
-       }
+void onRelayReceive(const String &topicStr, const String &message)
+{
+  Serial.println(topicStr + "  " + message);
+  recMsg = "iot/relay -> " + message;
+  fadeLed(3, 88);
+  if (message.equals("on"))
+  {
+    digitalWrite(RELAY_PIN, HIGH);
+    Serial.printf("set pin %d to %s\n", RELAY_PIN, "high");
+  }
+  else if (message.equals("off"))
+  {
+    digitalWrite(RELAY_PIN, LOW);
+    Serial.printf("set pin %d to %s\n", RELAY_PIN, "low");
+  }
+  else
+  {
+    switchRelay();
+  }
 }
