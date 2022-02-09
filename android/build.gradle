@@ -4,6 +4,9 @@ buildscript {
         compose_version = '1.0.4'
     }
     repositories {
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+        maven { url 'https://maven.aliyun.com/repository/google' }
         google()
         mavenCentral()
         maven { url = uri("https://jitpack.io") }
