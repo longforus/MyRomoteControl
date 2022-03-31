@@ -7,8 +7,11 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.provider.DocumentsContract
+import android.util.Log
 import android.view.View
 import android.view.WindowManager
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import java.io.File
 
@@ -22,6 +25,27 @@ object StatusBarUtil {
             window.decorView.systemUiVisibility = option or vis
             window.statusBarColor = Color.parseColor("#22000000")
         }
+    }
+
+
+    fun getStatusBarHeight(activity: Context):Dp{
+        /**
+         * 获取状态栏高度——方法1
+         * */
+        /**
+         * 获取状态栏高度——方法1
+         */
+        var statusBarHeight1 = -1
+        //获取status_bar_height资源的ID
+        //获取status_bar_height资源的ID
+        val resourceId: Int = activity.getResources().getIdentifier("status_bar_height", "dimen", "android")
+        if (resourceId > 0) {
+            //根据资源ID获取响应的尺寸值
+            statusBarHeight1 = activity.getResources().getDimension(resourceId).toInt()
+        }
+        Log.d("StatusBarUtil", "状态栏-方法1:$statusBarHeight1")
+        val scale = activity.getResources().getDisplayMetrics().density;
+        return  (statusBarHeight1 / scale + 0.5f).dp
     }
 }
 

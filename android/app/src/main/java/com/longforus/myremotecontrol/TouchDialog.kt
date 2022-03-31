@@ -123,7 +123,6 @@ fun TouchDialog(navController: NavHostController = rememberNavController(),vm: M
                                 Text(text = "Cancel")
                             }
                             Button(onClick = {
-                                //tood
                                 stateResult.ssid = ssid
                                 stateResult.pwd = pwd
                                 if (stateResult.ssid.isNullOrEmpty()) {
@@ -136,7 +135,7 @@ fun TouchDialog(navController: NavHostController = rememberNavController(),vm: M
                                 }
                                 vm.doTouch(stateResult) {
                                     LogUtils.i(TAG, "EspTouchResult: $it")
-                                    stateResult.message = it.getBssid() + " is connected to the wifi"
+                                    stateResult.message = it.bssid + " is connected to the wifi"
                                     ToastUtils.showShort(stateResult.message)
                                     openDialog = false
                                 }

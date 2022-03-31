@@ -17,7 +17,6 @@ import com.tencent.mmkv.MMKV
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 
-private const val TAG = "MainViewModel"
 
 
 class MainViewModel : ViewModel() {

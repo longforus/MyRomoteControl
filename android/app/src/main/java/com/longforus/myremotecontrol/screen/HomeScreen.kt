@@ -1,8 +1,6 @@
 package com.longforus.myremotecontrol.screen
 
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
+import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,6 +24,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.compose.ConstraintLayout
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.longforus.myremotecontrol.*
@@ -45,10 +44,18 @@ val TAG = "HomeScreen"
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 @Preview(showSystemUi = true)
-fun HomeScreen(navController: NavHostController = rememberNavController(), viewModel: MainViewModel = androidx.lifecycle.viewmodel.compose
-    .viewModel(), clientHolder: ClientHolder = ClientHolder(viewModel)
+fun HomeScreen(
+    navController: NavHostController = rememberNavController(),
+    viewModel: MainViewModel = viewModel(),
+    clientHolder: ClientHolder = ClientHolder(viewModel),
 ) {
-    Column(Modifier.padding(10.dp)) {
+
+    // actual composable state that we will show on UI and update in `Scrollable`
+    Column(
+        Modifier
+            .padding(top = 10.dp, start = 10.dp, end = 10.dp, bottom = 50.dp)
+            .verticalScroll(rememberScrollState())
+            ) {
         DacSpace(navController,viewModel,clientHolder)
         Spacer(modifier = Modifier.height(20.dp))
         Text(text = "AC")

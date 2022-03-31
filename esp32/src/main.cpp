@@ -95,6 +95,7 @@ void setup(void)
   delay(1000);
 
   prefs.begin("settings");
+  // prefs.clear();
   String ssid = prefs.getString("ssid", "");
   String wifipwd = prefs.getString("wifipwd", "");
   Serial.printf("read ssid = %s pwd = %s\n", ssid.c_str(), wifipwd.c_str());
