@@ -44,6 +44,7 @@ void switchRelay();
 void onRelayReceive(const String &topicStr, const String &message);
 String getRelayStatus();
 void connMQTT(String ssid, String pwd);
+void startSmartConfigWifi();
 
 int ledDelay = 0;
 
@@ -101,8 +102,49 @@ void setup(void)
   Serial.printf("read ssid = %s pwd = %s\n", ssid.c_str(), wifipwd.c_str());
   if (ssid.isEmpty() || wifipwd.isEmpty()) //未组网
   {
+    startSmartConfigWifi();
+  }
+  else
+  {
+    recMsg = "Connecting WiFi to " + ssid + " ...";
+    drawSplash(&display, recMsg);
+    int timeout = 20000;
+    while (WiFi.status() != WL_CONNECTED&&timeout>0)
+    {
+      delay(500);
+      timeout-=500;
+      Serial.print(".");
+    }
+    if (timeout<=0)
+    {
+      startSmartConfigWifi();
+    }else{
+      delay(1500);
+      connMQTT(ssid, wifipwd);
+    }
+  }
 
-    //Init WiFi as Station, start SmartConfig
+  //led
+  pinMode(BLUE_LED_PIN, OUTPUT);
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, LOW);
+  ledTiker.attach_ms(200, led_timer_toggle, -1);
+
+  ui.setTargetFPS(30);
+  ui.setTimePerFrame(5000);
+  // You can change the transition that is used
+  // SLIDE_LEFT, SLIDE_RIGHT, SLIDE_TOP, SLIDE_DOWN
+  ui.setFrameAnimation(SLIDE_UP);
+  // Add frames
+  ui.setFrames(frames, numberOfFrames);
+  ui.disableAllIndicators();
+  // Inital UI takes care of initalising the display too.
+  //ui.init();
+  ui.enableAutoTransition();
+}
+
+void startSmartConfigWifi(){
+   //Init WiFi as Station, start SmartConfig
     WiFi.mode(WIFI_AP_STA);
     WiFi.beginSmartConfig();
     //Wait for SmartConfig packet from mobile
@@ -138,11 +180,11 @@ void setup(void)
     Serial.println();
     Serial.print("IP Address: ");
     Serial.println(WiFi.localIP());
-    ssid = WiFi.SSID();
+    String ssid = WiFi.SSID();
     recMsg = "SmartConfig OK : " + ssid;
     drawSplash(&display, recMsg);
     delay(1500);
-    wifipwd = WiFi.psk();
+    String wifipwd = WiFi.psk();
     Serial.print("ssid: ");
     Serial.println(ssid);
     Serial.print("pwd: ");
@@ -151,32 +193,6 @@ void setup(void)
     prefs.putString("wifipwd", wifipwd);
     prefs.end();
     connMQTT(ssid, wifipwd);
-  }
-  else
-  {
-    recMsg = "Connecting WiFi to " + ssid + " ...";
-    drawSplash(&display, recMsg);
-    delay(1500);
-    connMQTT(ssid, wifipwd);
-  }
-
-  //led
-  pinMode(BLUE_LED_PIN, OUTPUT);
-  pinMode(RELAY_PIN, OUTPUT);
-  digitalWrite(RELAY_PIN, LOW);
-  ledTiker.attach_ms(200, led_timer_toggle, -1);
-
-  ui.setTargetFPS(30);
-  ui.setTimePerFrame(5000);
-  // You can change the transition that is used
-  // SLIDE_LEFT, SLIDE_RIGHT, SLIDE_TOP, SLIDE_DOWN
-  ui.setFrameAnimation(SLIDE_UP);
-  // Add frames
-  ui.setFrames(frames, numberOfFrames);
-  ui.disableAllIndicators();
-  // Inital UI takes care of initalising the display too.
-  //ui.init();
-  ui.enableAutoTransition();
 }
 
 void drawSplash(OLEDDisplay *display, String label)
