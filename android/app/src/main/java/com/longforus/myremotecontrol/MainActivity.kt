@@ -7,6 +7,7 @@ import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Bundle
+import android.view.KeyEvent
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -92,6 +93,15 @@ class MainActivity : AppCompatActivity() {
         setContent {
             AppMainNavigation()
         }
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        when(keyCode){
+            KeyEvent.KEYCODE_VOLUME_UP->  clientHolder.doRRPC("home/dac", "+", DEVICENAME_8266)
+            KeyEvent.KEYCODE_VOLUME_DOWN->  clientHolder.doRRPC("home/dac", "-", DEVICENAME_8266)
+            else->   return super.onKeyDown(keyCode, event)
+        }
+        return true
     }
 
 

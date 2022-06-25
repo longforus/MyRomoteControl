@@ -93,7 +93,7 @@ fun HomeScreen(
                         }
                         .pointerInput(Unit) {
                             detectTapGestures(onLongPress = {
-                                switchACPower(viewModel)
+                                switchACPowerStatus(viewModel)
                             })
                         }
                 )
@@ -124,7 +124,7 @@ fun HomeScreen(
                         }
                         .pointerInput(Unit) {
                             detectTapGestures(onLongPress = {
-                                switchDacPower(viewModel)
+                                switchDacPowerStatus(viewModel)
                             })
                         }
                 )
@@ -146,7 +146,7 @@ fun HomeScreen(
                     .width(80.dp)
                     .pointerInput(Unit) {
                         detectTapGestures(onLongPress = {
-                            switchACPower(viewModel)
+                            switchACPowerStatus(viewModel)
                         })
                     },
                 colors = ButtonDefaults.buttonColors(backgroundColor = if (acIsOpen) Purple500 else Color.LightGray)
@@ -302,7 +302,7 @@ private fun DacSpace(navController: NavHostController, viewModel: MainViewModel 
                     }
                     .pointerInput(Unit) {
                         detectTapGestures(onLongPress = {
-                            switchDacPower(viewModel)
+                            switchDacPowerStatus(viewModel)
                         })
                     }
             )
@@ -325,7 +325,7 @@ private fun DacSpace(navController: NavHostController, viewModel: MainViewModel 
                 clientHolder.doRRPC("home/dac", if (dacIsOpen) "off" else "on", DEVICENAME_8266)
             },
             onLongClick = {
-                switchDacPower(viewModel)
+                switchDacPowerStatus(viewModel)
             }
         ) {
             Text(text = if (dacIsOpen) "off" else "on")
@@ -390,7 +390,7 @@ private fun DacSpace(navController: NavHostController, viewModel: MainViewModel 
 
 
 
-private fun switchACPower(viewModel: MainViewModel) {
+private fun switchACPowerStatus(viewModel: MainViewModel) {
     val b = !(viewModel.acOpen.value ?: false)
     viewModel.acOpen.value = b
     MMKV.defaultMMKV().encode(AC_POWER_STATUS_KEY, b)
@@ -398,7 +398,7 @@ private fun switchACPower(viewModel: MainViewModel) {
 
 
 
-private fun switchDacPower(viewModel: MainViewModel) {
+private fun switchDacPowerStatus(viewModel: MainViewModel) {
     val b = !(viewModel.dacOpen.value ?: false)
     viewModel.dacOpen.value = b
     MMKV.defaultMMKV().encode(DAC_POWER_STATUS_KEY, b)
