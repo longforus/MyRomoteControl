@@ -27,7 +27,7 @@ Ticker printTiker;
 #include "Account.h"
 
 EspMQTTClient client(
-    "XUNMIAO",
+    "haner",
     WIFI_PWD,
     MQTT_SERVER_ADDRESS, // MQTT Broker server ip
     MQTT_USER_NAME,      // Can be omitted if not needed
@@ -42,11 +42,11 @@ static const uint8_t BLUE_LED_PIN = D3;
 #include <IRsend.h>
 #include <IRrecv.h>
 #include <IRutils.h>
-#include <ir_Gree.h>
+#include <ir_Midea.h>
 
 const uint16_t kIrLed = D2; // ESP8266 GPIO pin to use. Recommended: 4 (D2).
 IRsend irsend(kIrLed);      // Set the GPIO to be used to sending the message.
-IRGreeAC ac(kIrLed);  // Set the GPIO to be used for sending messages.
+IRMideaAC ac(kIrLed);  // Set the GPIO to be used for sending messages.
 
 // An IR detector/demodulator is connected to GPIO pin 14(D5 on a NodeMCU
 // board).
@@ -167,13 +167,8 @@ void ac_remote_split_line_toggle()
 
 void printACState() {
   // Display the settings.
-  Serial.println("GREE A/C remote is in the following state:");
+  Serial.println("Midea A/C remote is in the following state:");
   Serial.printf("  %s\n", ac.toString().c_str());
-  // Display the encoded IR sequence.
-  unsigned char* ir_code = ac.getRaw();
-  Serial.print("IR Code: 0x");
-  for (uint8_t i = 0; i < kGreeStateLength; i++)
-    Serial.printf("%02X", ir_code[i]);
   Serial.println();
 }
 
@@ -239,13 +234,13 @@ void onConnectionEstablished()
                         */
                      case hash_str_to_uint32("on"):
                         ac.on();
-                        irsend.sendNEC(0x00FF02FDUL);
+                        irsend.sendCOOLIX(0x00B27BE0UL);
                         break;
                      case hash_str_to_uint32("off"):
                        // Set up what we want to send. See ir_Gree.cpp for all the options.
                         // Most things default to off.
                         ac.off();
-                        irsend.sendNEC(0x00FF02FDUL);
+                        irsend.sendCOOLIX(0x00B2FFD0UL);
                         // ac.setFan(1);
                         // // kGreeAuto, kGreeDry, kGreeCool, kGreeFan, kGreeHeat
                         // ac.setMode(kGreeCool);
@@ -257,13 +252,13 @@ void onConnectionEstablished()
                         // ac.setTurbo(false);
                        break;
                      case hash_str_to_uint32("-"):
-                       irsend.sendNEC(0x00FF02FDUL);
+                     irsend.sendCOOLIX(0x00B2FF40UL);
                        break;
                      case hash_str_to_uint32("+"):
-                       irsend.sendNEC(0x00FF9867UL);
+                      irsend.sendCOOLIX(0x00B2FFC0UL);
                        break;
                      case hash_str_to_uint32("model"):
-                       irsend.sendNEC(0x00FF9867UL);
+                      irsend.sendCOOLIX(0x00B21FC4UL);
                        break;
                      default:
                        break;
