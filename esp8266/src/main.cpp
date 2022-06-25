@@ -46,7 +46,7 @@ static const uint8_t BLUE_LED_PIN = D3;
 
 const uint16_t kIrLed = D2; // ESP8266 GPIO pin to use. Recommended: 4 (D2).
 IRsend irsend(kIrLed);      // Set the GPIO to be used to sending the message.
-IRMideaAC ac(kIrLed);  // Set the GPIO to be used for sending messages.
+IRMideaAC ac(kIrLed);       // Set the GPIO to be used for sending messages.
 
 // An IR detector/demodulator is connected to GPIO pin 14(D5 on a NodeMCU
 // board).
@@ -73,7 +73,7 @@ void setup(void)
 {
   Serial.setRxBufferSize(1024);
   Serial.begin(115200);
-  //led
+  // led
   pinMode(BLUE_LED_PIN, OUTPUT);
   ledTiker.attach_ms(200, led_timer_toggle, -1);
   irsend.begin();
@@ -91,7 +91,7 @@ void setup(void)
   client.enableDebuggingMessages(); // Enable debugging messages sent to serial output
   client.setMaxPacketSize(1024);
   client.setKeepAlive(60);
-  //client.enableHTTPWebUpdater();                                             // Enable the web updater. User and password default to values of MQTTUsername and MQTTPassword. These can be overrited with enableHTTPWebUpdater("user", "password").
+  // client.enableHTTPWebUpdater();                                             // Enable the web updater. User and password default to values of MQTTUsername and MQTTPassword. These can be overrited with enableHTTPWebUpdater("user", "password").
   client.enableLastWillMessage("TestClient/lastwill", "I am going offline"); // You can activate the retain flag by setting the third parameter to true
   printACState();
 }
@@ -107,7 +107,7 @@ String recMsg = "connecting to wifi...";
 void loop(void)
 {
   client.loop();
-  //now = baseTime.operator + (TimeSpan((millis() - millisTimeUpdated) / 1000));
+  // now = baseTime.operator + (TimeSpan((millis() - millisTimeUpdated) / 1000));
   if (WiFi.status() == WL_CONNECTED)
   {
     if (!timeBegin)
@@ -125,7 +125,7 @@ void loop(void)
     Serial.println(results.decode_type);
     irrecv.resume(); // Receive the next value
     printTiker.detach();
-    printTiker.once_ms(200,ac_remote_split_line_toggle);
+    printTiker.once_ms(200, ac_remote_split_line_toggle);
   }
 }
 
@@ -165,7 +165,8 @@ void ac_remote_split_line_toggle()
   Serial.println();
 }
 
-void printACState() {
+void printACState()
+{
   // Display the settings.
   Serial.println("Midea A/C remote is in the following state:");
   Serial.printf("  %s\n", ac.toString().c_str());
@@ -216,8 +217,7 @@ void onConnectionEstablished()
                        }
                        break;
                      }
-                     client.publish(topicStr, message);
-                   });
+                     client.publish(topicStr, message); });
 
   client.subscribe("/ext/rrpc/#/home/ac", [](const String &topicStr, const String &message)
                    {
@@ -234,13 +234,13 @@ void onConnectionEstablished()
                         */
                      case hash_str_to_uint32("on"):
                         ac.on();
-                        irsend.sendCOOLIX(0x00B27BE0UL);
+                        irsend.sendCOOLIX(0x00B2FFD0UL);
                         break;
                      case hash_str_to_uint32("off"):
                        // Set up what we want to send. See ir_Gree.cpp for all the options.
                         // Most things default to off.
                         ac.off();
-                        irsend.sendCOOLIX(0x00B2FFD0UL);
+                        irsend.sendCOOLIX(0x00B27BE0UL);
                         // ac.setFan(1);
                         // // kGreeAuto, kGreeDry, kGreeCool, kGreeFan, kGreeHeat
                         // ac.setMode(kGreeCool);
@@ -264,8 +264,7 @@ void onConnectionEstablished()
                        break;
                      }
                       ac.send();
-                      client.publish(topicStr, ac.toString());
-                   });
+                      client.publish(topicStr, ac.toString()); });
 
   // client.subscribe("volumio", [](const String &topicStr, const String &message)
   //                  {
