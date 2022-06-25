@@ -5,7 +5,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aliyun.iot20180120.Client
 import com.aliyun.iot20180120.models.GetDeviceStatusRequest
-import com.aliyun.teaopenapi.models.Config
 import com.espressif.iot.esptouch.EsptouchTask
 import com.espressif.iot.esptouch.IEsptouchResult
 import com.espressif.iot.esptouch.util.ByteUtil
@@ -50,7 +49,7 @@ class MainViewModel : ViewModel() {
 
 
     val client = kotlin.run {
-        val config: Config = Config() // 您的AccessKey ID
+        val config: com.aliyun.teaopenapi.models.Config = com.aliyun.teaopenapi.models.Config() // 您的AccessKey ID
             .setAccessKeyId(ALIYUN_AK) // 您的AccessKey Secret
             .setAccessKeySecret(ALIYUN_SK)
         // 访问的域名
@@ -70,6 +69,7 @@ class MainViewModel : ViewModel() {
                     iotInstanceId = InstanceId
                     productKey = PRODUCTKEY
                 }
+
                 val resp = client.getDeviceStatus(statusReq)
                 //OFFLINE
                 deviceStatusFlow.emit(resp.body.data.status)
@@ -103,7 +103,7 @@ class MainViewModel : ViewModel() {
     var dacPowerOffTime = MutableLiveData(MMKV.defaultMMKV().decodeLong(DAC_POWER_OFF_TIMER_KEY, 0))
 
     var acOpen = MutableLiveData(MMKV.defaultMMKV().decodeBool(AC_POWER_STATUS_KEY, false))
-    var acTemp = MutableLiveData(MMKV.defaultMMKV().decodeInt(AC_TEMP_KEY, 0))
+    var acTemp = MutableLiveData(MMKV.defaultMMKV().decodeInt(AC_TEMP_KEY, 16))
     var acMode = MutableLiveData(
         AcMode.valueOf(
             MMKV.defaultMMKV().decodeString(AC_MODE_KEY, AcMode.COOL.name) ?: AcMode.COOL.name

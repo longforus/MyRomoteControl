@@ -187,6 +187,7 @@ class MainActivity : AppCompatActivity() {
             3 -> "dacTimer"
             4 -> "acPower:0->off 1->on"
             5 -> "acMode:AUTO,COOL,DRY,FAN,HEAT"
+            6 -> "ac temp(16..30)"
             else -> "vol(0..30)"
         }
 
@@ -214,6 +215,11 @@ class MainActivity : AppCompatActivity() {
                     val acMode = AcMode.values()[toInt]
                     vm.acMode.value = acMode
                     MMKV.defaultMMKV().encode(AC_MODE_KEY, acMode.name)
+                }
+                6 -> {
+                    val toInt = text.toInt()
+                    vm.acTemp.value = toInt
+                    MMKV.defaultMMKV().encode(AC_TEMP_KEY, toInt)
                 }
                 else -> {
                     val toInt = text.toInt()

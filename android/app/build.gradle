@@ -76,7 +76,10 @@ dependencies {
     androidTestImplementation "androidx.compose.ui:ui-test-junit4:$compose_version"
     debugImplementation "androidx.compose.ui:ui-tooling:$compose_version"
     implementation 'com.tencent:mmkv-static:1.2.11'
+    // https://mvnrepository.com/artifact/com.aliyun/iot20180120
     implementation 'com.aliyun:iot20180120:3.0.3'
+
+//    implementation 'com.aliyun:tea-openapi:0.2.5'
     implementation 'com.github.EspressifApp:lib-esptouch-android:1.0.0'
 
     implementation 'com.guolindev.permissionx:permissionx:1.6.0'

@@ -55,8 +55,8 @@ fun HomeScreen(
         Modifier
             .padding(top = 10.dp, start = 10.dp, end = 10.dp, bottom = 50.dp)
             .verticalScroll(rememberScrollState())
-            ) {
-        DacSpace(navController,viewModel,clientHolder)
+    ) {
+        DacSpace(navController, viewModel, clientHolder)
         Spacer(modifier = Modifier.height(20.dp))
         Text(text = "AC")
         Spacer(modifier = Modifier.height(20.dp))
@@ -79,11 +79,11 @@ fun HomeScreen(
             if (acIsOpen) {
                 Text(
                     buildAnnotatedString {
-                    withStyle(style = SpanStyle(fontSize = 123.sp, fontWeight = FontWeight.Bold)) {
-                        append(acTemp.toString())
-                    }
-                    append("°C")
-                },
+                        withStyle(style = SpanStyle(fontSize = 123.sp, fontWeight = FontWeight.Bold)) {
+                            append(acTemp.toString())
+                        }
+                        append("°C")
+                    },
                     modifier = Modifier
                         .constrainAs(tvVol) {
                             top.linkTo(parent.top)
@@ -93,7 +93,7 @@ fun HomeScreen(
                         }
                         .pointerInput(Unit) {
                             detectTapGestures(onLongPress = {
-                                switchACPowerStatus(viewModel)
+                                navController.navigate("adjustValue?type=6")
                             })
                         }
                 )
@@ -111,10 +111,10 @@ fun HomeScreen(
             } else {
                 Text(
                     buildAnnotatedString {
-                    withStyle(style = SpanStyle(fontSize = 123.sp, fontWeight = FontWeight.Bold, color = Color.Gray)) {
-                        append("off")
-                    }
-                },
+                        withStyle(style = SpanStyle(fontSize = 123.sp, fontWeight = FontWeight.Bold, color = Color.Gray)) {
+                            append("off")
+                        }
+                    },
                     modifier = Modifier
                         .constrainAs(tvVol) {
                             top.linkTo(parent.top)
@@ -124,7 +124,7 @@ fun HomeScreen(
                         }
                         .pointerInput(Unit) {
                             detectTapGestures(onLongPress = {
-                                switchDacPowerStatus(viewModel)
+                                switchACPowerStatus(viewModel)
                             })
                         }
                 )
@@ -138,17 +138,15 @@ fun HomeScreen(
                 .fillMaxWidth()
                 .padding(top = 15.dp)
         ) {
-            Button(
+            LongClickButton(
+                onLongClick = {
+                    switchACPowerStatus(viewModel)
+                },
                 onClick = {
                     clientHolder.doRRPC("home/ac", if (acIsOpen) "off" else "on", DEVICENAME_8266)
                 }, modifier = Modifier
                     .height(80.dp)
-                    .width(80.dp)
-                    .pointerInput(Unit) {
-                        detectTapGestures(onLongPress = {
-                            switchACPowerStatus(viewModel)
-                        })
-                    },
+                    .width(80.dp),
                 colors = ButtonDefaults.buttonColors(backgroundColor = if (acIsOpen) Purple500 else Color.LightGray)
             ) {
                 Text(text = if (acIsOpen) "off" else "on")
@@ -214,7 +212,11 @@ fun HomeScreen(
 
 @ExperimentalFoundationApi
 @Composable
-private fun DacSpace(navController: NavHostController, viewModel: MainViewModel = androidx.lifecycle.viewmodel.compose.viewModel(), clientHolder: ClientHolder = ClientHolder(viewModel)) {
+private fun DacSpace(
+    navController: NavHostController,
+    viewModel: MainViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
+    clientHolder: ClientHolder = ClientHolder(viewModel)
+) {
     Text(text = "Dac")
     val dacIsOpen by viewModel.dacOpen.observeAsState(MMKV.defaultMMKV().decodeBool(DAC_POWER_STATUS_KEY, false))
     val volume by viewModel.dacVol.observeAsState(MMKV.defaultMMKV().decodeInt(DAC_VOL_KEY, 0))
@@ -236,11 +238,11 @@ private fun DacSpace(navController: NavHostController, viewModel: MainViewModel 
         if (dacIsOpen) {
             Text(
                 buildAnnotatedString {
-                withStyle(style = SpanStyle(fontSize = 123.sp, fontWeight = FontWeight.Bold)) {
-                    append(volume.toString())
-                }
-                append("vol")
-            },
+                    withStyle(style = SpanStyle(fontSize = 123.sp, fontWeight = FontWeight.Bold)) {
+                        append(volume.toString())
+                    }
+                    append("vol")
+                },
                 modifier = Modifier
                     .constrainAs(tvVol) {
                         top.linkTo(parent.top)
@@ -289,10 +291,10 @@ private fun DacSpace(navController: NavHostController, viewModel: MainViewModel 
         } else {
             Text(
                 buildAnnotatedString {
-                withStyle(style = SpanStyle(fontSize = 123.sp, fontWeight = FontWeight.Bold, color = Color.Gray)) {
-                    append("off")
-                }
-            },
+                    withStyle(style = SpanStyle(fontSize = 123.sp, fontWeight = FontWeight.Bold, color = Color.Gray)) {
+                        append("off")
+                    }
+                },
                 modifier = Modifier
                     .constrainAs(tvVol) {
                         top.linkTo(parent.top)
@@ -317,9 +319,9 @@ private fun DacSpace(navController: NavHostController, viewModel: MainViewModel 
             .padding(top = 15.dp)
     ) {
         LongClickButton(
-             modifier = Modifier
-                 .height(80.dp)
-                 .width(80.dp),
+            modifier = Modifier
+                .height(80.dp)
+                .width(80.dp),
             colors = ButtonDefaults.buttonColors(backgroundColor = if (dacIsOpen) Purple500 else Color.LightGray),
             onClick = {
                 clientHolder.doRRPC("home/dac", if (dacIsOpen) "off" else "on", DEVICENAME_8266)
@@ -389,13 +391,11 @@ private fun DacSpace(navController: NavHostController, viewModel: MainViewModel 
 }
 
 
-
 private fun switchACPowerStatus(viewModel: MainViewModel) {
     val b = !(viewModel.acOpen.value ?: false)
     viewModel.acOpen.value = b
     MMKV.defaultMMKV().encode(AC_POWER_STATUS_KEY, b)
 }
-
 
 
 private fun switchDacPowerStatus(viewModel: MainViewModel) {
