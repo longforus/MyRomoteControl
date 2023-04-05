@@ -1,4 +1,4 @@
-# using esp8266 and Aliyun implementation simple remote control for DAC
+# using esp8266 and Aliyun implementation simple remote control for DAC(SMSL-SU9)
 
 ## Device
 
