@@ -42,6 +42,7 @@ import com.longforus.myremotecontrol.screen.HomeScreen
 import com.longforus.myremotecontrol.screen.OtherScreen
 import com.longforus.myremotecontrol.ui.theme.Purple500
 import com.longforus.myremotecontrol.ui.theme.myremotecontrolTheme
+import com.longforus.myremotecontrol.util.ConsumerIrManagerApi
 import com.longforus.myremotecontrol.util.MyTouchNetUtil
 import com.longforus.myremotecontrol.util.StatusBarUtil
 import com.permissionx.guolindev.PermissionX
@@ -83,6 +84,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         StatusBarUtil.transparentStatusBar(this)
+        ConsumerIrManagerApi.getConsumerIrManager(this)
         val l = vm.dacPowerOffTime.value ?: 0
         if (l != 0L && l < System.currentTimeMillis() && vm.dacOpen.value == true) {
             vm.dacPowerOffTime.value = 0
@@ -115,9 +117,13 @@ class MainActivity : AppCompatActivity() {
                     ScaffoldScreen(navController, appBar = {
                         TopAppBar(title = {
                             val deviceStatus by vm.deviceStatusFlow.collectAsState()
+                            val isIrModelStatusFlow by vm.isIrModelStatusFlow.collectAsState()
                             Text(
-                                text = "ESP8266 : $DEVICENAME_8266 $deviceStatus",
-                                fontSize = 20.sp
+                                text =if(!isIrModelStatusFlow) "ESP8266 : $DEVICENAME_8266 $deviceStatus" else "IRModel",
+                                fontSize = 20.sp,
+                                modifier =   Modifier.clickable {
+                                    vm.onChangeControlModel()
+                                }
                             )
                         }, actions = {
                             Icon(Icons.Default.TapAndPlay, contentDescription = null, Modifier.clickable {

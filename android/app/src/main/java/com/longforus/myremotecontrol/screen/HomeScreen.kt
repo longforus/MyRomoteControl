@@ -34,6 +34,8 @@ import com.longforus.myremotecontrol.bean.DacInputSource
 import com.longforus.myremotecontrol.ui.LongClickButton
 import com.longforus.myremotecontrol.ui.theme.Purple500
 import com.longforus.myremotecontrol.ui.theme.Purple700
+import com.longforus.myremotecontrol.util.ConsumerIrManagerApi
+import com.longforus.myremotecontrol.util.NecPattern
 import com.tencent.mmkv.MMKV
 import java.text.SimpleDateFormat
 
@@ -324,7 +326,14 @@ private fun DacSpace(
                 .width(80.dp),
             colors = ButtonDefaults.buttonColors(backgroundColor = if (dacIsOpen) Purple500 else Color.LightGray),
             onClick = {
-                clientHolder.doRRPC("home/dac", if (dacIsOpen) "off" else "on", DEVICENAME_8266)
+                if (viewModel.isIrModelStatusFlow.value) {
+
+                    //IRremoteESP8266 value = 486C807F addr = 13842 command = 1
+                    ConsumerIrManagerApi.transmit(38000, NecPattern.buildPattern(0X12, 0X36, 0X01))
+                } else {
+                    clientHolder.doRRPC("home/dac", if (dacIsOpen) "off" else "on", DEVICENAME_8266)
+                }
+
             },
             onLongClick = {
                 switchDacPowerStatus(viewModel)
@@ -340,7 +349,12 @@ private fun DacSpace(
         ) {
             Button(
                 onClick = {
-                    clientHolder.doRRPC("home/dac", "+", DEVICENAME_8266)
+                    if (viewModel.isIrModelStatusFlow.value) {
+                        ConsumerIrManagerApi.transmit(38000, NecPattern.buildPattern(0X12, 0X36, 0X02))
+                    } else {
+                        clientHolder.doRRPC("home/dac", "+", DEVICENAME_8266)
+                    }
+
                 },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = dacIsOpen
@@ -349,7 +363,11 @@ private fun DacSpace(
             }
             Button(
                 onClick = {
-                    clientHolder.doRRPC("home/dac", "-", DEVICENAME_8266)
+                    if (viewModel.isIrModelStatusFlow.value) {
+                        ConsumerIrManagerApi.transmit(38000, NecPattern.buildPattern(0X12, 0X36, 0X06))
+                    } else {
+                        clientHolder.doRRPC("home/dac", "-", DEVICENAME_8266)
+                    }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -361,7 +379,12 @@ private fun DacSpace(
         }
         Button(
             onClick = {
-                clientHolder.doRRPC("home/dac", "input", DEVICENAME_8266)
+                if (viewModel.isIrModelStatusFlow.value) {
+                    ConsumerIrManagerApi.transmit(38000, NecPattern.buildPattern(0X12, 0X36, 0X07))
+                } else {
+                    clientHolder.doRRPC("home/dac", "input", DEVICENAME_8266)
+
+                }
             },
             modifier = Modifier
                 .height(80.dp)

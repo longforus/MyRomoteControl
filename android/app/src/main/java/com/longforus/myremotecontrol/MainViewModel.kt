@@ -47,6 +47,14 @@ class MainViewModel : ViewModel() {
         }
     }
 
+    fun onChangeControlModel() {
+        viewModelScope.launch {
+            val isIr = !isIrModelStatusFlow.value
+            isIrModelStatusFlow.emit(isIr)
+            MMKV.defaultMMKV().encode("isIrModel", isIr)
+        }
+    }
+
 
     val client = kotlin.run {
         val config: com.aliyun.teaopenapi.models.Config = com.aliyun.teaopenapi.models.Config() // 您的AccessKey ID
@@ -60,7 +68,7 @@ class MainViewModel : ViewModel() {
 
     val deviceStatusFlow = MutableStateFlow("OFFLINE")
     val secondDeviceStatusFlow = MutableStateFlow("OFFLINE")
-
+    val isIrModelStatusFlow = MutableStateFlow(MMKV.defaultMMKV().decodeBool("isIrModel", false))
     init {
         viewModelScope.launch(Dispatchers.IO) {
             while (isActive) {
