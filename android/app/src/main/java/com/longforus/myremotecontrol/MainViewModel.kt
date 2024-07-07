@@ -13,9 +13,13 @@ import com.longforus.myremotecontrol.bean.AcMode
 import com.longforus.myremotecontrol.bean.DacInputSource
 import com.longforus.myremotecontrol.bean.StateResult
 import com.tencent.mmkv.MMKV
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 
 class MainViewModel : ViewModel() {
@@ -57,9 +61,10 @@ class MainViewModel : ViewModel() {
 
 
     val client = kotlin.run {
-        val config: com.aliyun.teaopenapi.models.Config = com.aliyun.teaopenapi.models.Config() // 您的AccessKey ID
-            .setAccessKeyId(ALIYUN_AK) // 您的AccessKey Secret
-            .setAccessKeySecret(ALIYUN_SK)
+        val config: com.aliyun.teaopenapi.models.Config =
+            com.aliyun.teaopenapi.models.Config() // 您的AccessKey ID
+                .setAccessKeyId(ALIYUN_AK) // 您的AccessKey Secret
+                .setAccessKeySecret(ALIYUN_SK)
         // 访问的域名
         config.endpoint = "iot.cn-shanghai.aliyuncs.com"
         Client(config)
@@ -69,6 +74,7 @@ class MainViewModel : ViewModel() {
     val deviceStatusFlow = MutableStateFlow("OFFLINE")
     val secondDeviceStatusFlow = MutableStateFlow("OFFLINE")
     val isIrModelStatusFlow = MutableStateFlow(MMKV.defaultMMKV().decodeBool("isIrModel", false))
+
     init {
         viewModelScope.launch(Dispatchers.IO) {
             while (isActive) {
@@ -80,7 +86,9 @@ class MainViewModel : ViewModel() {
 
                 val resp = client.getDeviceStatus(statusReq)
                 //OFFLINE
-                deviceStatusFlow.emit(resp.body.data.status)
+                resp.body.data?.status?.let {
+                    deviceStatusFlow.emit(it)
+                }
                 delay(3 * 60 * 1000L)
             }
         }
@@ -93,7 +101,9 @@ class MainViewModel : ViewModel() {
                 }
                 val resp = client.getDeviceStatus(statusReq)
                 //OFFLINE
-                secondDeviceStatusFlow.emit(resp.body.data.status)
+                resp.body.data?.status?.let {
+                    secondDeviceStatusFlow.emit(it)
+                }
                 delay(3 * 60 * 1000L)
             }
         }
@@ -105,7 +115,8 @@ class MainViewModel : ViewModel() {
     var dacVol = MutableLiveData(MMKV.defaultMMKV().decodeInt(DAC_VOL_KEY, 0))
     var dacInputSource = MutableLiveData(
         DacInputSource.valueOf(
-            MMKV.defaultMMKV().decodeString(DAC_SOURCE_KEY, DacInputSource.USB.name) ?: DacInputSource.USB.name
+            MMKV.defaultMMKV().decodeString(DAC_SOURCE_KEY, DacInputSource.USB.name)
+                ?: DacInputSource.USB.name
         )
     )
     var dacPowerOffTime = MutableLiveData(MMKV.defaultMMKV().decodeLong(DAC_POWER_OFF_TIMER_KEY, 0))

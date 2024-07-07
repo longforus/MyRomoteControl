@@ -36,6 +36,14 @@ EspMQTTClient client(
     1883                 // The MQTT port, default to 1883. this line can be omitted
 );
 
+EspMQTTClient bafaClient(
+     "bemfa.com", // MQTT Broker server ip
+     9501,
+    "",      // Can be omitted if not needed
+    "",       // Can be omitted if not needed
+    MQTT_CLIENT_NAME_BAFA    // Client name that uniquely identify your device
+);
+
 static const uint8_t BLUE_LED_PIN = D3;
 
 #include <IRremoteESP8266.h>
@@ -86,13 +94,18 @@ void setup(void)
 
   char chipID[8];
   snprintf(chipID, sizeof chipID, "%lu", (unsigned long)ESP.getChipId());
-  Serial.printf("chipId = %s", chipID);
+  Serial.printf("chipId = %s\n", chipID);
   // Optionnal functionnalities of EspMQTTClient :
   client.enableDebuggingMessages(); // Enable debugging messages sent to serial output
   client.setMaxPacketSize(1024);
   client.setKeepAlive(60);
   // client.enableHTTPWebUpdater();                                             // Enable the web updater. User and password default to values of MQTTUsername and MQTTPassword. These can be overrited with enableHTTPWebUpdater("user", "password").
-  client.enableLastWillMessage("TestClient/lastwill", "I am going offline"); // You can activate the retain flag by setting the third parameter to true
+  client.enableLastWillMessage("TestClient/lastwill", "I am going offline"); // You can activate the retain flag by setting the third parameter to true // Optionnal functionnalities of EspMQTTClient :
+
+  bafaClient.enableDebuggingMessages(); // Enable debugging messages sent to serial output
+  bafaClient.setMaxPacketSize(1024);
+  bafaClient.setKeepAlive(60);
+  bafaClient.enableLastWillMessage("TestClient/lastwill", "I am going offline"); // You can activate the retain flag by setting the third parameter to true
   printACState();
 }
 
@@ -116,6 +129,7 @@ void loop(void)
       timeBegin = 1;
       Serial.println("conncet success");
     }
+    bafaClient.loop();
   }
 
   if (irrecv.decode(&results))
@@ -282,4 +296,35 @@ void onConnectionEstablished()
   // Execute delayed instructions
   // client.executeDelayed(5 * 1000, []()
   //                       { client.publish("mytopic/wildcardtest/test123", "This is a message sent 5 seconds later"); });
+
+
+  bafaClient.subscribe("home005", [](const String &topicStr, const String &message)
+                   {
+                     Serial.println(topicStr + "  " + message);
+                     fadeLed(3, 88);
+                      printACState();
+                     switch (hash_str_to_uint32(message.c_str()))
+                     {
+                       /*
+                        * irrecv 20 -> value = 250200939 addr = 0 command = 0 decode_type = 55
+                          irrecv 21 -> value = 9DA32078 addr = 0 command = 0 decode_type = -1
+                          irrecv 22 -> value = 270200939 addr = 0 command = 0 decode_type = 55
+                          irrecv 23 -> value = B113BDC0 addr = 0 command = 0 decode_type = -1
+                        */
+                     case hash_str_to_uint32("on"):
+                        ac.on();
+                        irsend.sendCOOLIX(0x00B2FFD0UL);
+                        break;
+                     case hash_str_to_uint32("off"):
+                        ac.off();
+                       irsend.sendCOOLIX(0x00B27BE0UL);
+                       break;
+                     case hash_str_to_uint32("on#1"):
+                      irsend.sendCOOLIX(0x00B21FC4UL);
+                       break;
+                     default:
+                       break;
+                     }
+                      ac.send();
+                   });
 }
